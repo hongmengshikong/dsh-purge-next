@@ -13,7 +13,7 @@ import { ingestBundle, type IngestBundle } from "./store/ingest.js";
 import { listAssets, stats, upsertAsset } from "./store/assets.js";
 import { addScoreHit } from "./store/score-hit.js";
 import { listScoreBoard } from "./store/score-board.js";
-import { seedScorePoints } from "./store/scoring.js";
+import { seedScorePoints, listStages } from "./store/scoring.js";
 
 type SqlValue = string | number | null;
 const sqlv = (value: unknown): SqlValue =>
@@ -105,6 +105,39 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 		}
 
 		if (op === "stats") return withDb(root, id, (db) => ({ ok: true, stats: stats(db) }));
+
+		if (op === "stages") return withDb(root, id, (db) => ({ ok: true, items: listStages(db) }));
+
+		if (op === "saveStage") {
+			return withDb(root, id, (db) => {
+				const patch = (req.stage ?? req) as Record<string, unknown>;
+				const code = String(patch.code ?? "").trim();
+				if (!code) return { ok: false, error: "stage.code 必填" };
+				const current = db.prepare("SELECT * FROM stage WHERE code = ?").get(code) as Record<string, unknown> | undefined;
+				const text = (value: unknown, fallback: string): string =>
+					typeof value === "string" ? value : String(current?.[fallback] ?? "");
+				db.prepare(
+					`INSERT INTO stage(code, name, subtitle, color, goal, sections, tools, transition, sort_order, updated_at)
+					 VALUES(?,?,?,?,?,?,?,?,?,?)
+					 ON CONFLICT(code) DO UPDATE SET
+					   name = excluded.name, subtitle = excluded.subtitle, color = excluded.color, goal = excluded.goal,
+					   sections = excluded.sections, tools = excluded.tools,
+					   transition = excluded.transition, updated_at = excluded.updated_at`,
+				).run(
+					code,
+					text(patch.name, "name") || code,
+					text(patch.subtitle, "subtitle"),
+					text(patch.color, "color") || "#64748b",
+					text(patch.goal, "goal"),
+					patch.sections !== undefined ? JSON.stringify(patch.sections) : String(current?.sections ?? "[]"),
+					text(patch.tools, "tools"),
+					text(patch.transition, "transition"),
+					Number(current?.sort_order ?? 0),
+					new Date().toISOString(),
+				);
+				return { ok: true, items: listStages(db) };
+			});
+		}
 
 		if (op === "scores") return withDb(root, id, (db) => ({ ok: true, ...listScoreBoard(db) }));
 

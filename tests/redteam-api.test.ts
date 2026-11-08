@@ -74,6 +74,17 @@ describe("redteam api 分派", () => {
 		expect(chain[0]).toMatchObject({ title: "打点", vuln_title: "SQLi" });
 	});
 
+	it("stages / saveStage", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "s", scope: [] });
+		const stages = dispatch(root, { op: "stages", engagement: "s" }).items as { code: string; name: string }[];
+		expect(stages).toHaveLength(5);
+		const saved = dispatch(root, { op: "saveStage", engagement: "s", stage: { code: "recon", name: "侦察（改）" } });
+		expect(saved).toMatchObject({ ok: true });
+		const after = dispatch(root, { op: "stages", engagement: "s" }).items as { code: string; name: string }[];
+		expect(after.find((item) => item.code === "recon")?.name).toBe("侦察（改）");
+	});
+
 	it("未知 op / 缺少靶标返回明确错误", () => {
 		const root = tempRoot();
 		expect(dispatch(root, { op: "assets" })).toMatchObject({ ok: false, error: "engagement required" });

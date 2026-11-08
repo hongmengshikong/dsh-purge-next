@@ -94,6 +94,7 @@
 | M7 更新骨架 | ✅ | 单通道 master；仓库未配置时 unconfigured，配置后生成 master tarball URL |
 | M7 安装补丁 | ✅ | `ensureProfileBundle`：bundles + cordis insert 幂等写入 |
 | M7 更新路由 | ✅ | GET `/dsh-purge-next/update`；Dock 显示更新源状态 |
+| M5 stages | ✅ | `stages` / `saveStage`（五个作战阶段可改） |
 
 ---
 
@@ -253,6 +254,34 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 
 ---
 
+## 9.1 parity 审计（2026-11-08）
+
+| 面 | 旧 dsh-purge | 新 dsh-purge-next | 差距 |
+| --- | --- | --- | --- |
+| 红队工具 | 64 个 | 10 个 | 缺 54 |
+| dispatch op | 72 个 | 21 个 | 缺 51 |
+| UI 入口 | 8 个 overlay mount + 设置页 + 演练台 | 1 个 Dock | 缺设置页/演练台 |
+| 更新通道 | stable + beta | master 单通道 | 按 D7 故意不迁 |
+| 补丁引擎 | 84 条 + apply/revert | 等价（门禁/字节还原已验证） | 仅剩 stale bak 刷新 |
+
+### P0（不做就不算等价）
+- `report` / `scoreReport` / `scoreChain` / `activeTests` / `testStats`：交付报告与计分总账；
+- `shots` 证据链：`shotAdd/shotList/shotData/shotDelete` + 代表图挂载；
+- `access` / `webshells`：`access`、`access_list`、`webshell_*`；
+- `prompts` / `roles` / `resetPrompts`：角色提示词面板；
+- `vulnStats` / `updateVuln` / `updateTunnel` / `updateWebshell`：成果状态流转。
+
+### P1
+- `graph` / `attackGraph` / `discoveryTimeline` / `domains` / `web`；
+- `httpEvidence` / `addHttpEvidence` / `attackFiles` / `addAttackFile` / `readAttackFile`；
+- `sessions` / `consoleDigest` / `snapshot`；
+- 工具补齐：asset_assess/asset_test/asset_timeline/asset_graph/report/score_* 等。
+
+### P2（低优先/已下架）
+- `platformConfigGet/Save`、`templateSearch/Stats`、`probeSessions`；
+- POC 知识库（旧版已下架，返回 disabled）；
+- 更新通道的 stable/beta（明确不迁）。
+
 ## 10. 风险与已知坑
 
 1. 插件 `name` 必须等于包名，否则 client 404。
@@ -277,6 +306,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:02 — parity 审计：旧 64 工具/72 op vs 新 10/21；差距按 P0/P1/P2 写入 §9.1；补 stages/saveStage op。88 tests 全绿。
 - 2026-11-08 21:01 — M7 安装/更新：`update/install.ts`（bundles + insert 幂等写入）、`GET /dsh-purge-next/update`、Dock 更新源行。87 tests 全绿。
 - 2026-11-08 21:00 — M6/M7：Dock 接 bootstrap/scores 并可切换靶标（bundle 6932 B）；`update/check.ts` 单通道（无 stable/beta，未配置返回 unconfigured）。83 tests 全绿。
 - 2026-11-08 20:58 — 真机 UI：`/dsh-purge-next/status` 与 `POST /redteam/api` 在 3099 上分别 200/200；期间修掉 `ctx.tools` 未注入导致的插件激活失败（改为 `ctx.inject(["tools"])`）。
