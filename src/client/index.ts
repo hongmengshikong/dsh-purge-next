@@ -87,7 +87,7 @@ const COLOR: Record<string, string> = {
 };
 
 export function Panel(): unknown {
-	const [tab, setTab] = useState<"clean" | "redteam">("clean");
+	const [tab, setTab] = useState<"clean" | "redteam" | "skills">("clean");
 	const [status, setStatus] = useState<StatusPayload | null>(null);
 	const [boot, setBoot] = useState<BootstrapPayload | null>(null);
 	const [score, setScore] = useState<ScorePayload | null>(null);
@@ -98,6 +98,9 @@ export function Panel(): unknown {
 	const [shots, setShots] = useState<{ id: number; label?: string; file: string }[]>([]);
 	const [shotView, setShotView] = useState<{ mime: string; data: string } | null>(null);
 	const [reportText, setReportText] = useState("");
+	const [skills, setSkills] = useState<{ id: string; library: string; description: string; valid: boolean; error: string | null }[]>([]);
+	const [skillName, setSkillName] = useState("");
+	const [skillText, setSkillText] = useState("");
 	const [promptText, setPromptText] = useState("");
 	const [busy, setBusy] = useState(false);
 
@@ -130,6 +133,12 @@ export function Panel(): unknown {
 			}
 			const prompt = await getJson<{ content?: string }>("/dsh-purge-next/prompt");
 			setPromptText(prompt.content ?? "");
+			try {
+				const catalog = await postApi<{ items?: { id: string; library: string; description: string; valid: boolean; error: string | null }[] }>({ op: "skillCatalog" });
+				setSkills(catalog.items ?? []);
+			} catch {
+				setSkills([]);
+			}
 		} catch (error) {
 			setStatus({ ok: false, error: error instanceof Error ? error.message : String(error) });
 		}
@@ -175,6 +184,7 @@ export function Panel(): unknown {
 			h("strong", null, "dsh-purge-next"),
 			h("span", { role: "button", style: tab === "clean" ? styles.tabOn : styles.tab, onClick: () => setTab("clean") }, "清洗"),
 			h("span", { role: "button", style: tab === "redteam" ? styles.tabOn : styles.tab, onClick: () => setTab("redteam") }, "演练台"),
+			h("span", { role: "button", style: tab === "skills" ? styles.tabOn : styles.tab, onClick: () => setTab("skills") }, "技能库"),
 		),
 		tab === "clean"
 			? h(
@@ -212,7 +222,8 @@ export function Panel(): unknown {
 						)),
 					),
 				)
-			: h(
+			: tab === "redteam"
+				? h(
 					"div",
 					null,
 					h("div", { style: styles.muted }, formatBootstrap(boot)),
@@ -288,7 +299,66 @@ export function Panel(): unknown {
 					reportText
 						? h("pre", { style: { whiteSpace: "pre-wrap", maxHeight: 160, overflow: "auto", fontSize: 11, marginTop: 6 } }, reportText)
 						: null,
-				),
+				)
+			: tab === "skills"
+				? h(
+						"div",
+						null,
+						h("div", { style: styles.muted }, "技能 " + skills.length + " 个（redteam + official）"),
+						h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, margin: "4px 0" } },
+							...skills.map((item) =>
+								h("button", {
+									key: item.library + ":" + item.id,
+									type: "button",
+									style: styles.engagement,
+									onClick: async () => {
+										setSkillName(item.id);
+										const hit = await postApi<{ content?: string }>({ op: "skillRead", name: item.id, library: item.library });
+										setSkillText(String(hit.content ?? ""));
+									},
+								}, (item.valid ? "" : "⚠ ") + item.id + " · " + item.library),
+							),
+						),
+						h("textarea", {
+							value: skillText,
+							onChange: (event: { target: { value: string } }) => setSkillText(event.target.value),
+							placeholder: "SKILL.md",
+							style: { width: "100%", height: 120, fontSize: 11, marginTop: 4, fontFamily: "monospace" },
+						}),
+						h("div", { style: styles.row },
+							h("button", {
+								type: "button",
+								disabled: busy || !skillName,
+								onClick: async () => {
+									setBusy(true);
+									try {
+										await postApi({ op: "skillSave", name: skillName, content: skillText });
+										await load();
+									} finally {
+										setBusy(false);
+									}
+								},
+								style: styles.button,
+							}, "保存技能"),
+							h("button", {
+								type: "button",
+								disabled: busy || !skillName,
+								onClick: async () => {
+									setBusy(true);
+									try {
+										await postApi({ op: "skillDelete", name: skillName });
+										setSkillText("");
+										await load();
+									} finally {
+										setBusy(false);
+									}
+								},
+								style: styles.button,
+							}, "删除（redteam）"),
+							h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
+						),
+					)
+				: null,
 	);
 }
 

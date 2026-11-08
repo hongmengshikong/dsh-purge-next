@@ -101,6 +101,7 @@
 | M7 更新路由 | ✅ | GET `/dsh-purge-next/update`；Dock 显示更新源状态 |
 | M5 stages | ✅ | `stages` / `saveStage`（五个作战阶段可改） |
 | M5 P1 图谱/证据 | ✅ | graph / httpEvidence / attackFiles 读写；工具扩到 23 个 |
+| 满血：技能库 | ✅ | skills.ts（frontmatter 解析/redteam+official 扫描/读写删）+ 4 op + 面板技能页签 |
 | 满血：证据账本 | ✅ | evidence-ledger.ts（SQLite + 语义哈希）+ 5 工具 + verify/upgrade/unknown |
 | 满血：会话实测 | ✅ | probeSessions（HTTP + TCP 实测，异步分发） |
 | 满血：环境适配 | ✅ | platform-config.ts（工具目录/模板目录/整包扫描/envAdapt）+ 3 op |
@@ -349,6 +350,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-09 06:07+08 — 满血第四批：技能库（skills.ts + skillCatalog/Read/Save/Delete/Status + 面板第三页签）。**工具 65/65、op 缺 0**；119 tests。
 - 2026-11-09 06:04+08 — 满血第三批：evidence-ledger.ts（record/verify/upgrade/list/unresolved，哈希与旧实现一致）、unknown registry 3 工具、probeSessions 异步实测。**工具 65/65 全覆盖、op 缺 0**；115 tests。
 - 2026-11-09 06:01+08 — 满血第二批：环境适配（platform-config + platformConfigGet/Save/AssignToolkit）、并发闸门（settings + redteam_agent_slot）、preflight 带平台摘要、模板目录走配置优先。110 tests；tools 60/64、ops 77/72（仅缺 probeSessions）。
 - 2026-11-09 05:58+08 — 满血版启动：以 1.1.71 完整树（D:\Home\_full-1.1.71）为基准，移植 POC 知识库与模板检索（knowledge/{schema,store,templates}.ts，poc* 8 op + 6 工具 + template* 2 op）；tools 59/64、ops 73；105 tests 全绿。

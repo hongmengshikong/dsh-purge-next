@@ -23,6 +23,7 @@ import { deletePoc, getPoc, markPocUsed, pocStats, savePoc, searchPocs, updatePo
 import { searchTemplates, templateStats } from "./knowledge/templates.js";
 import { assignToolkitFolder, loadPlatformConfig, platformSummary, savePlatformConfig } from "./platform-config.js";
 import { EvidenceLedger, UnknownRegistry } from "./evidence-ledger.js";
+import { deleteSkill, readSkill, saveSkill, skillCatalog, skillsStatus } from "./skills.js";
 import { probeSessions } from "./probe.js";
 
 type SqlValue = string | number | null;
@@ -74,6 +75,25 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			const activated = setActiveEngagement(root, String(req.engagement ?? ""));
 			return { ok: activated, current: activeEngagementId(root) };
 		}
+
+		if (op === "skillCatalog") return { ok: true, items: skillCatalog(root), status: skillsStatus(root) };
+
+		if (op === "skillRead") {
+			const hit = readSkill(root, String(req.name ?? ""), req.library === "official" ? "official" : "redteam");
+			return hit ? { ok: true, ...hit } : { ok: false, error: "skill not found" };
+		}
+
+		if (op === "skillSave") {
+			const saved = saveSkill(root, String(req.name ?? ""), String(req.content ?? ""), typeof req.description === "string" ? req.description : "");
+			return saved.ok ? { ...saved, items: skillCatalog(root) } : saved;
+		}
+
+		if (op === "skillDelete") {
+			const removed = deleteSkill(root, String(req.name ?? ""));
+			return removed.ok ? { ...removed, items: skillCatalog(root) } : removed;
+		}
+
+		if (op === "skillsStatus") return { ok: true, status: skillsStatus(root) };
 
 		if (op === "platformConfigGet") return platformSummary(root);
 
