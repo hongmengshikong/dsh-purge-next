@@ -1,0 +1,62 @@
+{
+  "name": "dsh-purge-next",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "description": "dsh-purge 重写骨架：TS 源码 + 构建产物入库 + 零运行时依赖",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./client.js",
+    "./redteam": "./lib/redteam/index.js",
+    "./redteam/store": "./lib/redteam/store/index.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "lib",
+    "patches",
+    "client.js",
+    "cordis.patch.yml",
+    "docs",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node esbuild.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:loader": "vitest run tests/loader-sim.test.ts",
+    "gate": "npm run build && node lib/tools/gate.js",
+    "prepare": "npm run build",
+    "fixture:fetch": "node src/tools/fixture.ts",
+    "audit:parity": "node src/tools/parity-audit.ts",
+    "verify": "npm run typecheck && npm run build && npm test && npm run gate && npm run audit:parity"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}
