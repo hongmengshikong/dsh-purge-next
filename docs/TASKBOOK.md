@@ -1,4 +1,4 @@
-| dispatch op | 72 个 | 60 个 | 缺 12 || 红队工具 | 64 个 | 34 个 | 缺 30 || dispatch op | 72 个 | 56 个 | 缺 16 || 红队工具 | 64 个 | 28 个 | 缺 36 || dispatch op | 72 个 | 49 个 | 缺 23 || 红队工具 | 64 个 | 23 个 | 缺 41 |# dsh-purge-next 任务书
+| dispatch op | 72 个 | 60 个 | 缺 12 || 红队工具 | 64 个 | 42 个 | 缺 22 || dispatch op | 72 个 | 56 个 | 缺 16 || 红队工具 | 64 个 | 28 个 | 缺 36 || dispatch op | 72 个 | 49 个 | 缺 23 || 红队工具 | 64 个 | 23 个 | 缺 41 |# dsh-purge-next 任务书
 
 > 这份文件是项目的**唯一进度真相**。每次开工先读「§2 当前状态」，收工前更新它。
 > 开发过程中发现新问题/新约束，**直接改这份文档**（改完在 §12 记一行），不要另开文档。
@@ -287,6 +287,30 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - POC 知识库（旧版已下架，返回 disabled）；
 - 更新通道的 stable/beta（明确不迁）。
 
+### 9.2 剩余工具分类（2026-11-08，新 42 / 旧 64）
+
+**不迁（POC 知识库，旧版已下架）**：`poc_add/get/list/search/update/use`（6）
+
+**暂缓（依赖外部能力或低收益）**：
+- `preflight`、`agent_slot`、`session_check`（会话/环境探测）
+- `unknown_*`（3 个，未知资产归并）
+- `unverified_count`、`evidence_*`（4 个，证据升级流程）
+- `attack_chain`、`attack_path`（旧版图谱投影，已有 attack_graph 覆盖基础需求）
+
+### 9.3 最终 parity 清单
+
+| 项 | 状态 | 证据 |
+| --- | --- | --- |
+| 门禁 36/36、drift 0 | ✅ | `npm run gate` |
+| apply → revert 字节还原 | ✅ | `tests/apply.test.ts` sha256 全等 |
+| 二次 apply 幂等 | ✅ | applied=0、整树 hash 不变 |
+| 真机 status / redteam api | ✅ | 3099：status 200、bootstrap 200 |
+| UI Dock（status/应用/还原/靶标/得分） | ✅ | client bundle + loader-sim |
+| 单通道更新（无 stable/beta） | ✅ | `update/check.ts` + 测试 |
+| dispatch op | 60 / 72 | 余 12：POC 8 + 模板 2 + 平台配置 3 − 重叠 |
+| 工具 | 42 / 64 | 余 22 见 §9.2 |
+| 设置页/演练台整页 UI | ⬜ | 目前只有浮层 Dock |
+
 ## 10. 风险与已知坑
 
 1. 插件 `name` 必须等于包名，否则 client 404。
@@ -311,6 +335,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:13 — M5 工具收口：+8（asset_test/timeline、domain_index、web_list、shot_delete、score_point_save、report_targets、chain），工具 42/64；§9.2/§9.3 写清剩余分类与最终 parity 清单。96 tests 全绿。
 - 2026-11-08 21:12 — M5 余项：import 别名、saveScorePoint/deleteScorePoint（内置点拒改拒删）、reportTargets；工具 +6（shot_list/add、credential_list、webshell_list/add、attack_file_list）。ops 60、tools 34；96 tests 全绿。
 - 2026-11-08 21:11 — M5 P1 三：sessions / consoleDigest / snapshot / attackGraph / updateVuln / updateTunnel / assetLink；工具 +5。ops 56、tools 28；95 tests 全绿。
 - 2026-11-08 21:09 — M5 P1 续：discoveryTimeline / domains / web / assessAsset / assetTest；工具加 asset_get/stats/assess、score_list/hit/report、report。ops 49、tools 23。94 tests 全绿。

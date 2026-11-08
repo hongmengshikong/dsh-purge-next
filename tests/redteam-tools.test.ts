@@ -49,6 +49,14 @@ describe("redteam tools", () => {
 			"redteam_webshell_list",
 			"redteam_webshell_add",
 			"redteam_attack_file_list",
+			"redteam_asset_test",
+			"redteam_asset_timeline",
+			"redteam_domain_index",
+			"redteam_web_list",
+			"redteam_shot_delete",
+			"redteam_score_point_save",
+			"redteam_report_targets",
+			"redteam_chain",
 		]);
 
 		const exec = { sessionId: "s-tools" };

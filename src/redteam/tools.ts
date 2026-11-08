@@ -484,6 +484,92 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "attackFiles", engagement: id }));
 			},
 		},
+		{
+			name: "redteam_asset_test",
+			description: "更新资产测试状态（untested/testing/tested/blocked/abandoned/no_surface）。",
+			parameters: {
+				engagement: { type: "string" },
+				id: { type: "number", required: true },
+				status: { type: "string" },
+				notes: { type: "string" },
+				surface: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "assetTest", engagement: id, test: args }));
+			},
+		},
+		{
+			name: "redteam_asset_timeline",
+			description: "资产发现时间线（按天聚合 + 最近资产）。",
+			parameters: { engagement: { type: "string" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "discoveryTimeline", engagement: id, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_domain_index",
+			description: "域名索引（按资产数排序）。",
+			parameters: { engagement: { type: "string" }, q: { type: "string" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "domains", engagement: id, q: args.q, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_web_list",
+			description: "列出 Web 资产（URL / 标题 / banner）。",
+			parameters: { engagement: { type: "string" }, q: { type: "string" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "web", engagement: id, q: args.q, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_shot_delete",
+			description: "删除证据截图（同时删文件）。",
+			parameters: { engagement: { type: "string" }, id: { type: "number", required: true } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "shotDelete", engagement: id, id: args.id }));
+			},
+		},
+		{
+			name: "redteam_score_point_save",
+			description: "新增/修改自建得分点（内置点拒绝修改）。",
+			parameters: {
+				engagement: { type: "string" },
+				id: { type: "number" },
+				code: { type: "string" },
+				name: { type: "string" },
+				points: { type: "number" },
+				category: { type: "string" },
+				dedup_scope: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "saveScorePoint", engagement: id, point: args }));
+			},
+		},
+		{
+			name: "redteam_report_targets",
+			description: "按目标聚合漏洞数量。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "reportTargets", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_chain",
+			description: "读取攻击链步骤。",
+			parameters: { engagement: { type: "string" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "chain", engagement: id, limit: args.limit }));
+			},
+		},
 	];
 }
 
