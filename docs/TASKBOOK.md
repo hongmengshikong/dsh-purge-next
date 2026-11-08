@@ -344,6 +344,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:31 — 远端验证：从 GitHub `dist` 分支下载 177.3 KB tarball → 解包进隔离 profile → 启动 status 200（36 required / 0 drifted）、`/update` 返回 dist tarball。
 - 2026-11-08 21:30 — 已推送：master `06b2e4c`、tag `v0.2.2-rc.1`、**dist 分支**（lib/client.js 等 66 文件）到 github.com/hongmengshikong/dsh-purge-next；更新包 URL 改为 `archive/refs/heads/dist.tar.gz`（主线不入产物）。99 tests 全绿。
 - 2026-11-08 21:28 — 仓库地址已定：`https://github.com/hongmengshikong/dsh-purge-next.git`；`DEFAULT_REPO_URL` 填好，`/update` 返回 master tarball；测试改为「默认已配置 + env 覆盖」。
 - 2026-11-08 21:29 — 最终验证：`npm run verify` 全绿（98 tests / gate 36-0-0 / audit 53-63）；新增 `src/tools/set-repo-url.ts`（上传后一条命令填更新源并打印发布步骤）。唯一未完成项：仓库 URL。
