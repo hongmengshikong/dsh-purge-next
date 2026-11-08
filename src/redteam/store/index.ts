@@ -15,3 +15,6 @@ export { parseTargetPort, normalizePort } from "./score-rules.js";
 
 export * from "./meta.js";
 export * from "./engagement.js";
+
+export * from "./ip.js";
+export * from "./assets.js";
