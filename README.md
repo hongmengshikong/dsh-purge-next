@@ -1,6 +1,6 @@
 # dsh-purge-next
 
-dsh-purge 的 TypeScript 重写版：补丁引擎 + 提示词注入 + 红队演练台，零运行时依赖。
+dsh-purge 的 TypeScript 重写版（满血）：补丁引擎 + 提示词注入 + 红队演练台 + POC 知识库/技能库/环境适配，零运行时依赖。
 
 - 宿主：DSH `0.2.2-rc.1`（1:1 钉死，门禁 36/36）
 - 源码：`src/**` 全 TypeScript；`lib/`、`client.js` 为构建产物（不入库）
@@ -23,6 +23,10 @@ npm run gate           # required 36 / bad 0 / drifted 0
 - 提示词：启动 seed `$DSH_HOME/prompt-inject.md`、保留用户稿、`/dsh-purge-next/prompt` 读写
 - 红队演练台：`/redteam/api`（60 个 op）、65 个 `redteam_*` 工具
 - 浮层 UI：清洗 / 演练台 / 技能库 / 知识库 / 环境适配 五页签
+
+## 随包技能
+
+`skills/redteam/*.md` 共 23 个红队技能，插件启动时复制到 `$DSH_HOME/redteam/skills`（已存在不覆盖）。
 
 ## 更新
 

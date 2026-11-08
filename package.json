@@ -1,6 +1,6 @@
 {
   "name": "dsh-purge-next",
-  "version": "0.2.2-rc.2",
+  "version": "0.2.2-rc.1-full.1",
   "private": true,
   "description": "dsh-purge 重写骨架：TS 源码 + 构建产物入库 + 零运行时依赖",
   "type": "module",
@@ -23,7 +23,8 @@
     "client.js",
     "cordis.patch.yml",
     "docs",
-    "README.md"
+    "README.md",
+    "skills"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node esbuild.config.ts",
