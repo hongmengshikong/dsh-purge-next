@@ -1,0 +1,49 @@
+/**
+ * 更新检查（单通道）。
+ *
+ * 设计（D7/D8）：只有一条主线 master，没有 stable/beta；
+ * 更新源指向本仓库，仓库尚未上传时返回 unconfigured，不发起任何网络请求。
+ */
+export const UPDATE_BRANCH = "master";
+
+/** 仓库地址：上传后填这里（或设置 DSH_PURGE_REPO_URL）。 */
+export const DEFAULT_REPO_URL = "";
+
+export interface UpdateStatus {
+	configured: boolean;
+	channel: "master";
+	repoUrl: string;
+	reason?: string;
+}
+
+export function repoUrl(): string {
+	const env = process.env.DSH_PURGE_REPO_URL;
+	return (env && env.trim()) || DEFAULT_REPO_URL;
+}
+
+export function updateStatus(): UpdateStatus {
+	const url = repoUrl();
+	if (!url) return { configured: false, channel: "master", repoUrl: "", reason: "repo_not_configured" };
+	return { configured: true, channel: "master", repoUrl: url };
+}
+
+export interface UpdateCandidate {
+	version: string;
+	url: string;
+}
+
+/**
+ * 构造单通道更新地址：`<repo>/archive/refs/heads/master.tar.gz`。
+ * 未配置仓库时返回 null（调用方据此显示“未配置更新源”）。
+ */
+export function updateTarballUrl(): string | null {
+	const status = updateStatus();
+	if (!status.configured) return null;
+	const base = status.repoUrl.replace(/\.git$/, "").replace(/\/$/, "");
+	return `${base}/archive/refs/heads/${UPDATE_BRANCH}.tar.gz`;
+}
+
+export function describeUpdate(status: UpdateStatus = updateStatus()): string {
+	if (!status.configured) return "更新源未配置（仓库上传后填写 URL）";
+	return `更新源：${status.repoUrl}（分支 ${status.channel}）`;
+}
