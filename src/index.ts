@@ -1,6 +1,7 @@
 import type { PluginCtx } from "./host/types.js";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
 import { applyPayload, loadContext, revertPayload, seedPayload, statusPayload } from "./service.js";
+import { registerRedteamTools } from "./redteam/tools.js";
 
 /**
  * 主插件入口。
@@ -34,6 +35,8 @@ export function apply(ctx: PluginCtx): void {
 	const seed = seedPayload(dshHome);
 	if (seed.ok) ctx.logger.info(`[dsh-purge-next] prompt-inject: ${seed.action}`);
 	else ctx.logger.warn(`[dsh-purge-next] prompt-inject seed failed: ${seed.error ?? seed.action}`);
+
+	registerRedteamTools(ctx, dshHome);
 
 	const context = () => loadContext({ aiBase: findAiBase(), dshHome: findDshHome() });
 
