@@ -1,4 +1,4 @@
-| dispatch op | 72 个 | 77 个（含新增） | 缺 1（probeSessions） || 红队工具 | 64 个 | 60 个 | 缺 5（evidence 2 / unknown 3） || dispatch op | 72 个 | 56 个 | 缺 16 || 红队工具 | 64 个 | 28 个 | 缺 36 || dispatch op | 72 个 | 49 个 | 缺 23 || 红队工具 | 64 个 | 23 个 | 缺 41 |# dsh-purge-next 任务书
+| dispatch op | 72 个 | 86 个（含新增） | 缺 0 || 红队工具 | 64 个 | 65 个 | 缺 0（全名覆盖，另含新增 attack_graph） || dispatch op | 72 个 | 56 个 | 缺 16 || 红队工具 | 64 个 | 28 个 | 缺 36 || dispatch op | 72 个 | 49 个 | 缺 23 || 红队工具 | 64 个 | 23 个 | 缺 41 |# dsh-purge-next 任务书
 
 > 这份文件是项目的**唯一进度真相**。每次开工先读「§2 当前状态」，收工前更新它。
 > 开发过程中发现新问题/新约束，**直接改这份文档**（改完在 §12 记一行），不要另开文档。
@@ -101,6 +101,8 @@
 | M7 更新路由 | ✅ | GET `/dsh-purge-next/update`；Dock 显示更新源状态 |
 | M5 stages | ✅ | `stages` / `saveStage`（五个作战阶段可改） |
 | M5 P1 图谱/证据 | ✅ | graph / httpEvidence / attackFiles 读写；工具扩到 23 个 |
+| 满血：证据账本 | ✅ | evidence-ledger.ts（SQLite + 语义哈希）+ 5 工具 + verify/upgrade/unknown |
+| 满血：会话实测 | ✅ | probeSessions（HTTP + TCP 实测，异步分发） |
 | 满血：环境适配 | ✅ | platform-config.ts（工具目录/模板目录/整包扫描/envAdapt）+ 3 op |
 | 满血：并发闸门 | ✅ | settings.ts（settings/env/default）+ redteam_agent_slot |
 | 满血：POC 知识库 | ✅ | knowledge.db（schema/FTS/迁移）+ 6 工具 + 8 op + nuclei 模板索引；105 tests |
@@ -347,6 +349,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-09 06:04+08 — 满血第三批：evidence-ledger.ts（record/verify/upgrade/list/unresolved，哈希与旧实现一致）、unknown registry 3 工具、probeSessions 异步实测。**工具 65/65 全覆盖、op 缺 0**；115 tests。
 - 2026-11-09 06:01+08 — 满血第二批：环境适配（platform-config + platformConfigGet/Save/AssignToolkit）、并发闸门（settings + redteam_agent_slot）、preflight 带平台摘要、模板目录走配置优先。110 tests；tools 60/64、ops 77/72（仅缺 probeSessions）。
 - 2026-11-09 05:58+08 — 满血版启动：以 1.1.71 完整树（D:\Home\_full-1.1.71）为基准，移植 POC 知识库与模板检索（knowledge/{schema,store,templates}.ts，poc* 8 op + 6 工具 + template* 2 op）；tools 59/64、ops 73；105 tests 全绿。
 - 2026-11-08 21:31 — 远端验证：从 GitHub `dist` 分支下载 177.3 KB tarball → 解包进隔离 profile → 启动 status 200（36 required / 0 drifted）、`/update` 返回 dist tarball。

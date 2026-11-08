@@ -695,7 +695,7 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 		},
 		{
 			name: "redteam_unverified_count",
-			description: "候选（未验证）漏洞数量。",
+			description: "还有多少条 claimed/inferred 证据没有闭环核实。",
 			parameters: { engagement: { type: "string" } },
 			execute(args, exec) {
 				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
@@ -704,20 +704,27 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 		},
 		{
 			name: "redteam_evidence_list",
-			description: "证据列表（等价 shot_list）。",
-			parameters: { engagement: { type: "string" }, limit: { type: "number" } },
+			description: "列出证据账本条目（可按 operation / confidence 过滤）。",
+			parameters: { engagement: { type: "string" }, operation: { type: "string" }, confidence: { type: "string" }, limit: { type: "number" } },
 			execute(args, exec) {
 				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
-				return json(dispatch(root, { op: "shots", engagement: id, limit: args.limit }));
+				return json(dispatch(root, { op: "evidenceList", engagement: id, operation: args.operation, confidence: args.confidence, limit: args.limit }));
 			},
 		},
 		{
 			name: "redteam_evidence_record",
-			description: "记录一张证据图（等价 shot_add，base64）。",
-			parameters: { engagement: { type: "string" }, data: { type: "string", required: true }, label: { type: "string" } },
+			description: "记录一条证据（operation + result 必填，哈希去重）。",
+			parameters: {
+				engagement: { type: "string" },
+				operation: { type: "string", required: true },
+				parameters: { type: "object" },
+				result: { type: "object", required: true },
+				confidence: { type: "string" },
+				authority: { type: "string" },
+			},
 			execute(args, exec) {
 				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
-				return json(dispatch(root, { op: "shotAdd", engagement: id, shot: args }));
+				return json(dispatch(root, { op: "evidenceRecord", engagement: id, evidence: args }));
 			},
 		},
 		{
@@ -846,6 +853,77 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 					return json({ ...base, released: dropped, used: Math.max(used - (dropped ? 1 : 0), 0) });
 				}
 				return json({ ...base, ok: false, error: "action 必须是 status|acquire|release" });
+			},
+		},
+		{
+			name: "redteam_evidence_verify",
+			description: "核对子智能体回报与证据账本是否一致（hash 级核对）。matched=false 表示改口、夸大或库里没有。",
+			parameters: {
+				engagement: { type: "string" },
+				operation: { type: "string", required: true },
+				parameters: { type: "object" },
+				result: { type: "object", required: true },
+				confidence: { type: "string" },
+				authority: { type: "string" },
+				limitations: { type: "array", items: { type: "string" } },
+				supporting_ev_ids: { type: "array", items: { type: "string" } },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "evidenceVerify", engagement: id, evidence: args }));
+			},
+		},
+		{
+			name: "redteam_evidence_upgrade",
+			description: "把 claimed / inferred 升级为 observed（必须带亲自验证的 verified_result）。",
+			parameters: {
+				engagement: { type: "string" },
+				claimed_ev_id: { type: "string", required: true },
+				verified_result: { type: "object" },
+				verified_by: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "evidenceUpgrade", engagement: id, evidence: args }));
+			},
+		},
+		{
+			name: "redteam_unknown_record",
+			description: "记录一个还没解决的作战问题（question+domain 去重）。",
+			parameters: {
+				engagement: { type: "string" },
+				question: { type: "string", required: true },
+				severity: { type: "string" },
+				domain: { type: "string" },
+				recommended_probe: { type: "string" },
+				supporting_ev_ids: { type: "array", items: { type: "string" } },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "unknownRecord", engagement: id, unknown: args }));
+			},
+		},
+		{
+			name: "redteam_unknown_list",
+			description: "列出未解决的作战问题（派活前先看 open 项）。",
+			parameters: { engagement: { type: "string" }, status: { type: "string" }, severity: { type: "string" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "unknownList", engagement: id, status: args.status, severity: args.severity, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_unknown_resolve",
+			description: "把未解决问题标为 resolved / contradicted / withdrawn。",
+			parameters: {
+				engagement: { type: "string" },
+				unk_id: { type: "string", required: true },
+				disposition: { type: "string", required: true },
+				resolution: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "unknownResolve", engagement: id, unk_id: args.unk_id, disposition: args.disposition, resolution: args.resolution }));
 			},
 		},
 	];

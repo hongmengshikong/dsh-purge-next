@@ -22,6 +22,8 @@ import { listPrompts, resetPrompts, savePrompt } from "./prompts.js";
 import { deletePoc, getPoc, markPocUsed, pocStats, savePoc, searchPocs, updatePoc } from "./knowledge/store.js";
 import { searchTemplates, templateStats } from "./knowledge/templates.js";
 import { assignToolkitFolder, loadPlatformConfig, platformSummary, savePlatformConfig } from "./platform-config.js";
+import { EvidenceLedger, UnknownRegistry } from "./evidence-ledger.js";
+import { probeSessions } from "./probe.js";
 
 type SqlValue = string | number | null;
 const sqlv = (value: unknown): SqlValue =>
@@ -389,6 +391,38 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			});
 		}
 
+		if (op === "evidenceRecord") {
+			return withDb(root, id, (db) => new EvidenceLedger(db).record({ ...((req.evidence ?? req) as Record<string, unknown>), engagement_id: id }));
+		}
+
+		if (op === "evidenceVerify") {
+			return withDb(root, id, (db) => new EvidenceLedger(db).verify((req.evidence ?? req) as never));
+		}
+
+		if (op === "evidenceUpgrade") {
+			return withDb(root, id, (db) => new EvidenceLedger(db).upgrade((req.evidence ?? req) as never));
+		}
+
+		if (op === "evidenceList") {
+			return withDb(root, id, (db) => ({ ok: true, items: new EvidenceLedger(db).list({ ...(req as Record<string, unknown>), engagement_id: id }) }));
+		}
+
+		if (op === "unresolvedClaims") {
+			return withDb(root, id, (db) => ({ ok: true, count: new EvidenceLedger(db).countUnresolvedClaims(id) }));
+		}
+
+		if (op === "unknownRecord") {
+			return withDb(root, id, (db) => new UnknownRegistry(db).record({ ...((req.unknown ?? req) as Record<string, unknown>), engagement_id: id }));
+		}
+
+		if (op === "unknownList") {
+			return withDb(root, id, (db) => ({ ok: true, items: new UnknownRegistry(db).list({ ...(req as Record<string, unknown>), engagement_id: id }) }));
+		}
+
+		if (op === "unknownResolve") {
+			return withDb(root, id, (db) => new UnknownRegistry(db).resolve(String(req.unk_id ?? ""), String(req.disposition ?? ""), typeof req.resolution === "string" ? req.resolution : undefined));
+		}
+
 		if (op === "preflight") {
 			return withDb(root, id, (db) => ({
 				ok: true,
@@ -401,10 +435,7 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 		}
 
 		if (op === "unverifiedCount") {
-			return withDb(root, id, (db) => ({
-				ok: true,
-				count: Number((db.prepare("SELECT COUNT(*) AS n FROM vuln WHERE COALESCE(status, '') IN ('', 'candidate')").get() as { n: number }).n),
-			}));
+			return withDb(root, id, (db) => ({ ok: true, count: new EvidenceLedger(db).countUnresolvedClaims(id) }));
 		}
 
 		if (op === "sessions") {
@@ -964,3 +995,20 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 
 /** `$DSH_HOME/redteam`（与旧插件同位置）。 */
 export const redteamRoot = (dshHome: string): string => join(dshHome, "redteam");
+
+
+/**
+ * 异步分发：只有 probeSessions 需要真实网络等待，其余转发同步 dispatch。
+ * （与旧 dispatchAsync 同语义）
+ */
+export async function dispatchAsync(root: string, req: ApiRequest = {}): Promise<Record<string, unknown>> {
+	if (req.op === "probeSessions") {
+		const id =
+			(typeof req.engagement === "string" && req.engagement.trim()) ||
+			activeEngagementId(root) ||
+			"";
+		if (!id) return { ok: true, webshells: [], tunnels: [], note: "还没有靶标" };
+		return probeSessions(root, id, { timeoutMs: Number(req.timeoutMs) || 6000 });
+	}
+	return dispatch(root, req);
+}

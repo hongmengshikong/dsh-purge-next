@@ -1,5 +1,5 @@
 /** HTTP 桥：POST /redteam/api → dispatch(root, body)。 */
-import { dispatch, redteamRoot } from "./api.js";
+import { dispatchAsync, redteamRoot } from "./api.js";
 
 interface HttpResponse {
 	writeHead?(code: number, headers?: Record<string, string>): void;
@@ -69,7 +69,7 @@ export function installRedteamApi(server: {
 				return undefined;
 			}
 			const body = await readJsonBody(req);
-			send(res, 200, dispatch(redteamRoot(dshHome), body));
+			send(res, 200, await dispatchAsync(redteamRoot(dshHome), body));
 			return undefined;
 		},
 	});

@@ -75,6 +75,11 @@ describe("redteam tools", () => {
 			"redteam_poc_update",
 			"redteam_poc_use",
 			"redteam_agent_slot",
+			"redteam_evidence_verify",
+			"redteam_evidence_upgrade",
+			"redteam_unknown_record",
+			"redteam_unknown_list",
+			"redteam_unknown_resolve",
 		]);
 
 		const exec = { sessionId: "s-tools" };
