@@ -20,6 +20,11 @@ describe("redteam tools", () => {
 			"redteam_asset_query",
 			"redteam_session_bind",
 			"redteam_session_info",
+			"redteam_vuln_add",
+			"redteam_vuln_query",
+			"redteam_credential_add",
+			"redteam_tunnel_list",
+			"redteam_chain_add",
 		]);
 
 		const exec = { sessionId: "s-tools" };

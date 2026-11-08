@@ -55,6 +55,25 @@ describe("redteam api 分派", () => {
 		expect(summary.countedHits).toBe(1);
 	});
 
+	it("vuln / credential / tunnel / chain 读写", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "r", scope: [] });
+
+		const vuln = dispatch(root, { op: "addVuln", engagement: "r", vuln: { title: "SQLi", severity: "high", asset_id: 1 } });
+		expect(vuln).toMatchObject({ ok: true });
+		expect((dispatch(root, { op: "vulns", engagement: "r" }).items as unknown[]).length).toBe(1);
+
+		expect(dispatch(root, { op: "addCredential", engagement: "r", credential: { host: "10.0.0.5", username: "admin", secret_type: "password", secret_value: "x" } })).toMatchObject({ ok: true });
+		expect((dispatch(root, { op: "credentials", engagement: "r" }).items as unknown[]).length).toBe(1);
+
+		expect(dispatch(root, { op: "addTunnel", engagement: "r", tunnel: { kind: "socks5", entry: "10.0.0.5:443" } })).toMatchObject({ ok: true });
+		expect((dispatch(root, { op: "tunnels", engagement: "r" }).items as unknown[]).length).toBe(1);
+
+		expect(dispatch(root, { op: "addChainStep", engagement: "r", step: { title: "打点", stage: "boundary", vuln_id: 1 } })).toMatchObject({ ok: true });
+		const chain = dispatch(root, { op: "chain", engagement: "r" }).items as { title: string; vuln_title: string }[];
+		expect(chain[0]).toMatchObject({ title: "打点", vuln_title: "SQLi" });
+	});
+
 	it("未知 op / 缺少靶标返回明确错误", () => {
 		const root = tempRoot();
 		expect(dispatch(root, { op: "assets" })).toMatchObject({ ok: false, error: "engagement required" });

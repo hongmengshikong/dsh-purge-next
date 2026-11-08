@@ -118,6 +118,85 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json({ ok: true, session: bindingViewOf(exec) });
 			},
 		},
+		{
+			name: "redteam_vuln_add",
+			description: "记录一条漏洞成果（标题必填；severity/cve/asset_id/target/evidence 可选）。",
+			parameters: {
+				engagement: { type: "string" },
+				title: { type: "string", required: true },
+				severity: { type: "string", enum: ["info", "low", "medium", "high", "critical"] },
+				cve: { type: "string" },
+				asset_id: { type: "number" },
+				target: { type: "string" },
+				evidence: { type: "string" },
+			},
+			execute(args, exec) {
+				const title = String(args.title ?? "").trim();
+				if (!title) throw new Error("title 必填");
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addVuln", engagement: id, vuln: { ...args, title } }));
+			},
+		},
+		{
+			name: "redteam_vuln_query",
+			description: "按 severity/status 查询漏洞成果。",
+			parameters: {
+				engagement: { type: "string" },
+				severity: { type: "string" },
+				status: { type: "string" },
+				limit: { type: "number" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "vulns", engagement: id, severity: args.severity, status: args.status, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_credential_add",
+			description: "记录凭据（host 必填；同一 host+username+secret_type 幂等更新）。",
+			parameters: {
+				engagement: { type: "string" },
+				host: { type: "string", required: true },
+				username: { type: "string" },
+				secret_type: { type: "string" },
+				secret_value: { type: "string" },
+				privilege: { type: "string" },
+			},
+			execute(args, exec) {
+				const host = String(args.host ?? "").trim();
+				if (!host) throw new Error("host 必填");
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addCredential", engagement: id, credential: { ...args, host } }));
+			},
+		},
+		{
+			name: "redteam_tunnel_list",
+			description: "列出已记录的内网隧道。",
+			parameters: { engagement: { type: "string" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "tunnels", engagement: id, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_chain_add",
+			description: "追加一条攻击链步骤。",
+			parameters: {
+				engagement: { type: "string" },
+				title: { type: "string", required: true },
+				stage: { type: "string" },
+				asset_id: { type: "number" },
+				vuln_id: { type: "number" },
+				tool: { type: "string" },
+				result: { type: "string" },
+			},
+			execute(args, exec) {
+				const title = String(args.title ?? "").trim();
+				if (!title) throw new Error("title 必填");
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addChainStep", engagement: id, step: { ...args, title } }));
+			},
+		},
 	];
 }
 
