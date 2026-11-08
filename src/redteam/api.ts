@@ -19,6 +19,8 @@ import { listScoreBoard } from "./store/score-board.js";
 import { seedScorePoints, listStages } from "./store/scoring.js";
 import { SCOPE_SQL } from "./store/schema.js";
 import { listPrompts, resetPrompts, savePrompt } from "./prompts.js";
+import { deletePoc, getPoc, markPocUsed, pocStats, savePoc, searchPocs, updatePoc } from "./knowledge/store.js";
+import { searchTemplates, templateStats } from "./knowledge/templates.js";
 
 type SqlValue = string | number | null;
 const sqlv = (value: unknown): SqlValue =>
@@ -68,6 +70,35 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 		if (op === "activateEngagement") {
 			const activated = setActiveEngagement(root, String(req.engagement ?? ""));
 			return { ok: activated, current: activeEngagementId(root) };
+		}
+
+		if (op === "pocSearch") {
+			const items = searchPocs(root, req as never);
+			const templates = typeof req.templateLimit === "number" ? searchTemplates(root, String(req.q ?? ""), Math.min(req.templateLimit, 100)) : undefined;
+			return { ok: true, items, stats: pocStats(root), templates, dbPath: join(root, "knowledge.db"), root };
+		}
+
+		if (op === "pocList") return { ok: true, items: searchPocs(root, req as never), stats: pocStats(root), dbPath: join(root, "knowledge.db") };
+
+		if (op === "templateSearch") return { ok: true, ...searchTemplates(root, String(req.q ?? ""), Math.min(Number(req.limit) || 40, 200)) };
+
+		if (op === "templateStats") return { ok: true, stats: templateStats(root) };
+
+		if (op === "pocStats") return { ok: true, stats: pocStats(root) };
+
+		if (op === "pocGet") return { ok: true, ...(getPoc(root, req.id !== undefined ? Number(req.id) : (req.code as string)) ?? {}) };
+
+		if (op === "pocSave") return { ok: true, ...savePoc(root, (req.poc ?? req) as never) };
+
+		if (op === "pocUpdate") {
+			return { ok: true, poc: updatePoc(root, req.id !== undefined ? Number(req.id) : String(req.code ?? ""), (req.patch ?? req) as never) };
+		}
+
+		if (op === "pocDelete") return deletePoc(root, req.id !== undefined ? Number(req.id) : String(req.code ?? ""));
+
+		if (op === "pocUse") {
+			const used = markPocUsed(root, req.id !== undefined ? Number(req.id) : String(req.code ?? ""), typeof req.used_on === "string" ? req.used_on : undefined);
+			return used;
 		}
 
 		const id =

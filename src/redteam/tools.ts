@@ -689,6 +689,91 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "shotAdd", engagement: id, shot: args }));
 			},
 		},
+		{
+			name: "redteam_poc_search",
+			description: "【打 Nday/1day 第一步】先查知识库（跨靶标 POC/EXP）与本机 nuclei 模板库。",
+			parameters: {
+				q: { type: "string" },
+				cve: { type: "string" },
+				component: { type: "string" },
+				category: { type: "string" },
+				kind: { type: "string" },
+				verified: { type: "boolean" },
+				limit: { type: "number" },
+				templateLimit: { type: "number" },
+			},
+			execute(args) {
+				return json(dispatch(root, { op: "pocSearch", ...args }));
+			},
+		},
+		{
+			name: "redteam_poc_get",
+			description: "取一条知识库 POC 的完整正文（id 或 code）。",
+			parameters: { id: { type: "number" }, code: { type: "string" } },
+			execute(args) {
+				return json(dispatch(root, { op: "pocGet", ...args }));
+			},
+		},
+		{
+			name: "redteam_poc_add",
+			description: "把验证有效的 POC/EXP 回填知识库（title 必填，建议带 category/cve/component）。",
+			parameters: {
+				title: { type: "string", required: true },
+				code: { type: "string" },
+				kind: { type: "string" },
+				category: { type: "string" },
+				cve: { type: "string" },
+				component: { type: "string" },
+				language: { type: "string" },
+				content: { type: "string" },
+				description: { type: "string" },
+				usage: { type: "string" },
+				verified: { type: "boolean" },
+				verified_note: { type: "string" },
+			},
+			execute(args) {
+				return json(dispatch(root, { op: "pocSave", poc: args }));
+			},
+		},
+		{
+			name: "redteam_poc_list",
+			description: "列出/筛选知识库条目（轻量字段，不含正文）。",
+			parameters: {
+				q: { type: "string" },
+				category: { type: "string" },
+				kind: { type: "string" },
+				verified: { type: "boolean" },
+				limit: { type: "number" },
+			},
+			execute(args) {
+				return json(dispatch(root, { op: "pocList", ...args }));
+			},
+		},
+		{
+			name: "redteam_poc_update",
+			description: "补验证结论/归类/正文（id 或 code + patch）。",
+			parameters: {
+				id: { type: "number" },
+				code: { type: "string" },
+				verified: { type: "boolean" },
+				verified_note: { type: "string" },
+				category: { type: "string" },
+				content: { type: "string" },
+				description: { type: "string" },
+			},
+			execute(args) {
+				const { id, code, ...patch } = args;
+				return json(dispatch(root, { op: "pocUpdate", id, code, patch }));
+			},
+		},
+		{
+			name: "redteam_poc_use",
+			description: "记一次复用（用于排序：常用武器排前面）。",
+			parameters: { id: { type: "number" }, code: { type: "string" }, used_on: { type: "string" } },
+			execute(args) {
+				return json(dispatch(root, { op: "pocUse", ...args }));
+			},
+		},
 	];
 }
 

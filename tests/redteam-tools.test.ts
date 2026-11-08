@@ -68,6 +68,12 @@ describe("redteam tools", () => {
 			"redteam_unverified_count",
 			"redteam_evidence_list",
 			"redteam_evidence_record",
+			"redteam_poc_search",
+			"redteam_poc_get",
+			"redteam_poc_add",
+			"redteam_poc_list",
+			"redteam_poc_update",
+			"redteam_poc_use",
 		]);
 
 		const exec = { sessionId: "s-tools" };
