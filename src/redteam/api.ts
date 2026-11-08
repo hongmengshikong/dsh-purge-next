@@ -279,6 +279,115 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			});
 		}
 
+		if (op === "graph") {
+			return withDb(root, id, (db) => {
+				const nodes: { id: string; kind: string; label: string; meta: Record<string, unknown> }[] = [];
+				const edges: { source: string; target: string; relation: string }[] = [];
+				const seen = new Set<string>();
+				const push = (node: { id: string; kind: string; label: string; meta: Record<string, unknown> }) => {
+					if (!seen.has(node.id)) {
+						seen.add(node.id);
+						nodes.push(node);
+					}
+				};
+				const segments = (typeof req.cidr === "string" && req.cidr
+					? db.prepare("SELECT * FROM segment WHERE cidr = ?").all(req.cidr)
+					: db.prepare("SELECT * FROM segment").all()) as Record<string, unknown>[];
+				for (const seg of segments) {
+					const cidr = String(seg.cidr);
+					push({ id: `seg:${cidr}`, kind: "segment", label: cidr, meta: { org: seg.org, asn: seg.asn } });
+					const assets = db.prepare("SELECT * FROM asset WHERE segment_cidr = ? ORDER BY ip_int").all(cidr) as Record<string, unknown>[];
+					for (const asset of assets) {
+						const assetId = Number(asset.id);
+						const nodeId = `asset:${assetId}`;
+						const openPorts = db.prepare("SELECT COUNT(*) AS n FROM port WHERE asset_id = ? AND state = 'open'").get(assetId) as { n: number };
+						push({
+							id: nodeId,
+							kind: "asset",
+							label: String(asset.ip),
+							meta: { state: asset.state, name: asset.primary_name, ports: Number(openPorts.n), segment: cidr },
+						});
+						edges.push({ source: `seg:${cidr}`, target: nodeId, relation: "contains" });
+						const ports = db.prepare("SELECT id, port, proto, provenance FROM port WHERE asset_id = ? AND state = 'open'").all(assetId) as Record<string, unknown>[];
+						for (const item of ports) {
+							const portNode = `port:${Number(item.id)}`;
+							push({ id: portNode, kind: "port", label: `${item.port}/${item.proto}`, meta: { provenance: item.provenance, asset: asset.ip } });
+							edges.push({ source: nodeId, target: portNode, relation: "exposes" });
+						}
+						if (asset.primary_name) {
+							const domainId = `name:${String(asset.primary_name)}`;
+							push({ id: domainId, kind: "domain", label: String(asset.primary_name), meta: {} });
+							edges.push({ source: domainId, target: nodeId, relation: "resolves" });
+						}
+					}
+				}
+				return { ok: true, nodes, edges };
+			});
+		}
+
+		if (op === "httpEvidence") {
+			return withDb(root, id, (db) => ({ ok: true, items: db.prepare("SELECT * FROM http_evidence ORDER BY id DESC LIMIT ?").all(Math.min(Number(req.limit) || 200, 1000)) }));
+		}
+
+		if (op === "addHttpEvidence") {
+			return withDb(root, id, (db) => {
+				const e = (req.evidence ?? req) as Record<string, unknown>;
+				const result = db.prepare(
+					`INSERT INTO http_evidence(vuln_id, asset_id, label, method, url, status, request, response, note, captured_by, captured_at)
+					 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+				).run(
+					sqlv(e.vuln_id), sqlv(e.asset_id), sqlv(e.label), sqlv(e.method), sqlv(e.url), sqlv(e.status),
+					sqlv(e.request), sqlv(e.response), sqlv(e.note), sqlv(e.captured_by), new Date().toISOString(),
+				);
+				return { ok: true, id: Number((result as { lastInsertRowid?: number | bigint }).lastInsertRowid ?? 0) };
+			});
+		}
+
+		if (op === "attackFiles") {
+			return withDb(root, id, (db) => ({
+				ok: true,
+				items: db.prepare("SELECT id, target, kind, name, path, description, created_at FROM attack_file ORDER BY id DESC LIMIT ?").all(Math.min(Number(req.limit) || 200, 1000)),
+			}));
+		}
+
+		if (op === "addAttackFile") {
+			const item = (req.file ?? req) as Record<string, unknown>;
+			const target = String(item.target ?? "").trim();
+			const name = String(item.name ?? "").trim();
+			if (!target || !name) return { ok: false, error: "target 与 name 必填" };
+			const dir = join(dirOf(pathsOf(root), id), "attack-files", target.replace(/[^\w.@-]+/g, "_"));
+			mkdirSync(dir, { recursive: true });
+			const rel = join("attack-files", target.replace(/[^\w.@-]+/g, "_"), name.replace(/[^\w.@-]+/g, "_"));
+			writeFile(join(dirOf(pathsOf(root), id), rel), String(item.content ?? ""), "utf8");
+			return withDb(root, id, (db) => {
+				const existing = db.prepare("SELECT id FROM attack_file WHERE target = ? AND name = ?").get(target, name) as { id?: number } | undefined;
+				if (existing?.id) {
+					db.prepare("UPDATE attack_file SET kind = COALESCE(?, kind), description = COALESCE(?, description), evidence = COALESCE(?, evidence), path = ? WHERE id = ?").run(
+						sqlv(item.kind), sqlv(item.description), sqlv(item.evidence), rel, existing.id,
+					);
+					return { ok: true, id: existing.id, path: rel, updated: true };
+				}
+				const result = db.prepare(
+					`INSERT INTO attack_file(target, target_kind, name, kind, path, description, evidence, asset_id, vuln_id, created_by, created_at)
+					 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+				).run(
+					target, sqlv(item.target_kind), name, sqlv(item.kind), rel, sqlv(item.description), sqlv(item.evidence),
+					sqlv(item.asset_id), sqlv(item.vuln_id), sqlv(item.created_by), new Date().toISOString(),
+				);
+				return { ok: true, id: Number((result as { lastInsertRowid?: number | bigint }).lastInsertRowid ?? 0), path: rel };
+			});
+		}
+
+		if (op === "readAttackFile") {
+			return withDb(root, id, (db) => {
+				const row = db.prepare("SELECT * FROM attack_file WHERE id = ?").get(Number(req.id)) as Record<string, unknown> | undefined;
+				if (!row) return { ok: false, error: "attack file not found" };
+				const fp = join(dirOf(pathsOf(root), id), String(row.path));
+				if (!fileExists(fp)) return { ok: false, error: "file missing" };
+				return { ok: true, item: row, content: readFile(fp, "utf8") };
+			});
+		}
+
 		if (op === "prompts") return { ok: true, roles: listPrompts(root, id) };
 
 		if (op === "savePrompt") {

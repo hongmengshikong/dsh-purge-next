@@ -28,6 +28,9 @@ describe("redteam tools", () => {
 			"redteam_roles",
 			"redteam_role_prompt",
 			"redteam_role_prompt_reset",
+			"redteam_asset_graph",
+			"redteam_http_evidence_add",
+			"redteam_attack_file_add",
 		]);
 
 		const exec = { sessionId: "s-tools" };

@@ -229,6 +229,50 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "resetPrompts", engagement: id, role: args.role }));
 			},
 		},
+		{
+			name: "redteam_asset_graph",
+			description: "资产图谱：C 段 → 资产 → 开放端口（含域名解析边）。",
+			parameters: { engagement: { type: "string" }, cidr: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "graph", engagement: id, cidr: args.cidr }));
+			},
+		},
+		{
+			name: "redteam_http_evidence_add",
+			description: "记录一条 HTTP 请求/响应证据（可直接粘贴进 Burp 复现）。",
+			parameters: {
+				engagement: { type: "string" },
+				url: { type: "string", required: true },
+				method: { type: "string" },
+				status: { type: "number" },
+				request: { type: "string" },
+				response: { type: "string" },
+				vuln_id: { type: "number" },
+			},
+			execute(args, exec) {
+				const url = String(args.url ?? "").trim();
+				if (!url) throw new Error("url 必填");
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addHttpEvidence", engagement: id, evidence: { ...args, url } }));
+			},
+		},
+		{
+			name: "redteam_attack_file_add",
+			description: "保存针对目标实际生效的脚本/POC（落盘 attack-files/）。",
+			parameters: {
+				engagement: { type: "string" },
+				target: { type: "string", required: true },
+				name: { type: "string", required: true },
+				content: { type: "string", required: true },
+				kind: { type: "string" },
+				description: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addAttackFile", engagement: id, file: args }));
+			},
+		},
 	];
 }
 

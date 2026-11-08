@@ -104,6 +104,26 @@ describe("redteam api 分派", () => {
 		expect((dispatch(root, { op: "webshells", engagement: "ev" }).items as { status: string }[])[0]?.status).toBe("offline");
 	});
 
+	it("graph / httpEvidence / attackFiles", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "g", scope: [] });
+		dispatch(root, { op: "ingest", engagement: "g", bundle: { assets: [{ ip: "10.0.0.5", primary_name: "portal", ports: [{ port: 443 }] }] } });
+
+		const graph = dispatch(root, { op: "graph", engagement: "g" }) as { nodes: { kind: string }[]; edges: { relation: string }[] };
+		const kinds = graph.nodes.map((node) => node.kind);
+		expect(kinds).toEqual(expect.arrayContaining(["segment", "asset", "port", "domain"]));
+		expect(graph.edges.map((edge) => edge.relation)).toEqual(expect.arrayContaining(["contains", "exposes", "resolves"]));
+
+		expect(dispatch(root, { op: "addHttpEvidence", engagement: "g", evidence: { url: "http://10.0.0.5/", method: "GET", status: 200, request: "GET /", response: "HTTP/1.1 200" } })).toMatchObject({ ok: true });
+		expect((dispatch(root, { op: "httpEvidence", engagement: "g" }).items as unknown[]).length).toBe(1);
+
+		const added = dispatch(root, { op: "addAttackFile", engagement: "g", file: { target: "10.0.0.5", name: "poc.py", content: "print(1)", kind: "poc" } });
+		expect(added).toMatchObject({ ok: true });
+		const read = dispatch(root, { op: "readAttackFile", engagement: "g", id: (added as { id: number }).id });
+		expect(read).toMatchObject({ ok: true, content: "print(1)" });
+		expect((dispatch(root, { op: "attackFiles", engagement: "g" }).items as unknown[]).length).toBe(1);
+	});
+
 	it("prompts / savePrompt / resetPrompts", () => {
 		const root = tempRoot();
 		dispatch(root, { op: "openEngagement", name: "pr", scope: [] });

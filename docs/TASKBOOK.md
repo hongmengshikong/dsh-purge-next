@@ -95,6 +95,7 @@
 | M7 安装补丁 | ✅ | `ensureProfileBundle`：bundles + cordis insert 幂等写入 |
 | M7 更新路由 | ✅ | GET `/dsh-purge-next/update`；Dock 显示更新源状态 |
 | M5 stages | ✅ | `stages` / `saveStage`（五个作战阶段可改） |
+| M5 P1 图谱/证据 | ✅ | graph / httpEvidence / attackFiles 读写；工具扩到 16 个 |
 | M5 角色提示词 | ✅ | `prompts` / `savePrompt` / `resetPrompts`（6 角色，默认正文入库）；工具 `redteam_roles/role_prompt/role_prompt_reset` |
 | M5 证据/权限入口 | ✅ | shots（落盘+sha256+读取+删除）、access、webshell（upsert/update） |
 | M5 报告 | ✅ | `scoreReport`（summary 与看板同口径）+ `report`（Markdown 骨架） |
@@ -262,8 +263,8 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 
 | 面 | 旧 dsh-purge | 新 dsh-purge-next | 差距 |
 | --- | --- | --- | --- |
-| 红队工具 | 64 个 | 10 个 | 缺 54 |
-| dispatch op | 72 个 | 21 个 | 缺 51 |
+| 红队工具 | 64 个 | 16 个 | 缺 48 |
+| dispatch op | 72 个 | 44 个 | 缺 28 |
 | UI 入口 | 8 个 overlay mount + 设置页 + 演练台 | 1 个 Dock | 缺设置页/演练台 |
 | 更新通道 | stable + beta | master 单通道 | 按 D7 故意不迁 |
 | 补丁引擎 | 84 条 + apply/revert | 等价（门禁/字节还原已验证） | 仅剩 stale bak 刷新 |
@@ -310,6 +311,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:08 — M5 P1：graph（段→资产→端口→域名）、httpEvidence/addHttpEvidence、attackFiles/addAttackFile/readAttackFile；工具扩到 16 个。93 tests 全绿。
 - 2026-11-08 21:07 — M5 角色提示词：`prompts-data.ts`（6 角色 / 75 KB 默认正文）、`prompts.ts`（读写/重置）、3 个工具；工具总数 13。92 tests 全绿。
 - 2026-11-08 21:06 — M5 证据/入口：`shotAdd`（base64 落盘 shots/ + sha256）、`shots`/`shotData`/`shotDelete`、`addAccess`/`access`、`addWebshell`/`webshells`/`updateWebshell`。测试覆盖落盘与撤销。
 - 2026-11-08 21:04 — M5 报告：`scoreReport`（hits/points/counted/selfCreated/serviceCapped/tunnelsLegit 与看板同口径）、`report` Markdown 骨架（靶标/范围/资产/漏洞/凭据/攻击链/得分）。
