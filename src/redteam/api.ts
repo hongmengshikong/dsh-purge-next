@@ -8,7 +8,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { activeEngagementId, dbPathOf, listEngagements, openEngagement, pathsOf, setActiveEngagement } from "./store/engagement.js";
+import { activeEngagementId, dbPathOf, dirOf, listEngagements, openEngagement, pathsOf, setActiveEngagement } from "./store/engagement.js";
+import { createHash } from "node:crypto";
+import { existsSync as fileExists, mkdirSync, readFileSync as readFile, rmSync, writeFileSync as writeFile } from "node:fs";
+
 import { ingestBundle, type IngestBundle } from "./store/ingest.js";
 import { listAssets, stats, upsertAsset } from "./store/assets.js";
 import { addScoreHit } from "./store/score-hit.js";
@@ -149,6 +152,129 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 				const statsOut: Record<string, number> = { untested: 0, testing: 0, tested: 0, blocked: 0, abandoned: 0, no_surface: 0 };
 				for (const row of statRows) statsOut[row.s] = row.n;
 				return { ok: true, testing, recent, queue, stats: statsOut, untested, at: new Date().toISOString() };
+			});
+		}
+
+		if (op === "shots") {
+			return withDb(root, id, (db) => {
+				const where = [];
+				const args = [];
+				if (req.point_id !== undefined) { where.push("point_id = ?"); args.push(Number(req.point_id)); }
+				if (req.hit_id !== undefined) { where.push("hit_id = ?"); args.push(Number(req.hit_id)); }
+				const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+				return { ok: true, items: db.prepare(`SELECT * FROM shot ${clause} ORDER BY id DESC LIMIT ?`).all(...args, Math.min(Number(req.limit) || 200, 1000)) };
+			});
+		}
+
+		if (op === "shotAdd") {
+			const shot = (req.shot ?? req) as Record<string, unknown>;
+			const data = String(shot.data ?? "");
+			if (!data) return { ok: false, error: "shot.data(base64) 必填" };
+			const buffer = Buffer.from(data.replace(/^data:[^,]+,/, ""), "base64");
+			const sha = createHash("sha256").update(buffer).digest("hex");
+			const ext = String(shot.mime ?? "image/png").includes("jpeg") ? "jpg" : "png";
+			const file = String(shot.file ?? `shot-${Date.now()}-${sha.slice(0, 8)}.${ext}`);
+			const dir = join(dirOf(pathsOf(root), id), "shots");
+			mkdirSync(dir, { recursive: true });
+			writeFile(join(dir, file), buffer);
+			return withDb(root, id, (db) => {
+				const result = db.prepare(
+					`INSERT INTO shot(point_id, hit_id, asset_id, vuln_id, target, label, note, file, kind, mime, bytes, width, height, sha256, source_ref, captured_at, found_by_agent, agent, created_at)
+					 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+				).run(
+					sqlv(shot.point_id), sqlv(shot.hit_id), sqlv(shot.asset_id), sqlv(shot.vuln_id), sqlv(shot.target),
+					sqlv(shot.label), sqlv(shot.note), file, sqlv(shot.kind) ?? "screenshot", sqlv(shot.mime) ?? "image/png",
+					buffer.length, sqlv(shot.width), sqlv(shot.height), sha, sqlv(shot.source_ref),
+					sqlv(shot.captured_at) ?? new Date().toISOString(), sqlv(shot.found_by_agent), sqlv(shot.agent), new Date().toISOString(),
+				);
+				return { ok: true, id: Number((result as { lastInsertRowid?: number | bigint }).lastInsertRowid ?? 0), file, sha256: sha };
+			});
+		}
+
+		if (op === "shotData") {
+			return withDb(root, id, (db) => {
+				const row = db.prepare("SELECT * FROM shot WHERE id = ?").get(Number(req.id)) as Record<string, unknown> | undefined;
+				if (!row) return { ok: false, error: "shot not found" };
+				const fp = join(dirOf(pathsOf(root), id), "shots", String(row.file));
+				if (!fileExists(fp)) return { ok: false, error: "shot file missing" };
+				return { ok: true, mime: row.mime ?? "image/png", data: readFile(fp).toString("base64"), item: row };
+			});
+		}
+
+		if (op === "shotDelete") {
+			return withDb(root, id, (db) => {
+				const row = db.prepare("SELECT file FROM shot WHERE id = ?").get(Number(req.id)) as { file?: string } | undefined;
+				db.prepare("DELETE FROM shot WHERE id = ?").run(Number(req.id));
+				if (row?.file) {
+					try {
+						rmSync(join(dirOf(pathsOf(root), id), "shots", row.file), { force: true });
+					} catch {
+						/* 文件已不在 */
+					}
+				}
+				return { ok: true, deleted: true };
+			});
+		}
+
+		if (op === "access") {
+			return withDb(root, id, (db) => ({ ok: true, items: db.prepare("SELECT * FROM access_session ORDER BY id DESC LIMIT ?").all(Math.min(Number(req.limit) || 200, 1000)) }));
+		}
+
+		if (op === "addAccess") {
+			return withDb(root, id, (db) => {
+				const s = (req.access ?? req) as Record<string, unknown>;
+				const result = db.prepare(
+					`INSERT INTO access_session(asset_id, host, username, method, privilege, session_ref, note, found_by_agent, obtained_at)
+					 VALUES(?,?,?,?,?,?,?,?,?)`,
+				).run(
+					sqlv(s.asset_id), sqlv(s.host), sqlv(s.username) ?? "", sqlv(s.method), sqlv(s.privilege),
+					sqlv(s.session_ref), sqlv(s.note), sqlv(s.found_by_agent), new Date().toISOString(),
+				);
+				return { ok: true, id: Number((result as { lastInsertRowid?: number | bigint }).lastInsertRowid ?? 0) };
+			});
+		}
+
+		if (op === "webshells") {
+			return withDb(root, id, (db) => ({ ok: true, items: db.prepare("SELECT * FROM webshell ORDER BY id DESC LIMIT ?").all(Math.min(Number(req.limit) || 200, 1000)) }));
+		}
+
+		if (op === "addWebshell") {
+			return withDb(root, id, (db) => {
+				const w = (req.webshell ?? req) as Record<string, unknown>;
+				const url = String(w.url ?? "").trim();
+				if (!url) return { ok: false, error: "webshell.url 必填" };
+				db.prepare(
+					`INSERT INTO webshell(asset_id, url, shell_type, pass_key, secret_ref, privilege, status, note, found_by_agent, created_at, updated_at, agent)
+					 VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+					 ON CONFLICT(url, pass_key) DO UPDATE SET
+					   shell_type = COALESCE(excluded.shell_type, webshell.shell_type),
+					   secret_ref = COALESCE(excluded.secret_ref, webshell.secret_ref),
+					   privilege = COALESCE(excluded.privilege, webshell.privilege),
+					   status = COALESCE(excluded.status, webshell.status),
+					   note = COALESCE(excluded.note, webshell.note),
+					   updated_at = excluded.updated_at`,
+				).run(
+					sqlv(w.asset_id), url, sqlv(w.shell_type), sqlv(w.pass_key), sqlv(w.secret_ref), sqlv(w.privilege),
+					sqlv(w.status) ?? "unknown", sqlv(w.note), sqlv(w.found_by_agent), new Date().toISOString(), new Date().toISOString(), sqlv(w.agent),
+				);
+				return { ok: true };
+			});
+		}
+
+		if (op === "updateWebshell") {
+			return withDb(root, id, (db) => {
+				const patch = (req.patch ?? req) as Record<string, unknown>;
+				const target = Number(req.id ?? patch.id);
+				const row = db.prepare("SELECT * FROM webshell WHERE id = ?").get(target) as Record<string, unknown> | undefined;
+				if (!row) return { ok: false, error: "webshell not found" };
+				db.prepare(
+					`UPDATE webshell SET status = ?, last_check = ?, check_note = ?, latency_ms = ?, privilege = COALESCE(?, privilege), note = COALESCE(?, note), updated_at = ?
+					 WHERE id = ?`,
+				).run(
+					sqlv(patch.status) ?? String(row.status ?? "unknown"), sqlv(patch.last_check), sqlv(patch.check_note),
+					sqlv(patch.latency_ms), sqlv(patch.privilege), sqlv(patch.note), new Date().toISOString(), target,
+				);
+				return { ok: true };
 			});
 		}
 

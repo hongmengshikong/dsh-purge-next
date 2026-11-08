@@ -1,4 +1,5 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -72,6 +73,35 @@ describe("redteam api 分派", () => {
 		expect(dispatch(root, { op: "addChainStep", engagement: "r", step: { title: "打点", stage: "boundary", vuln_id: 1 } })).toMatchObject({ ok: true });
 		const chain = dispatch(root, { op: "chain", engagement: "r" }).items as { title: string; vuln_title: string }[];
 		expect(chain[0]).toMatchObject({ title: "打点", vuln_title: "SQLi" });
+	});
+
+	it("shots / access / webshell", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "ev", scope: [] });
+
+		const added = dispatch(root, { op: "shotAdd", engagement: "ev", shot: { label: "证据", data: Buffer.from("hello").toString("base64") } });
+		expect(added).toMatchObject({ ok: true });
+		const file = join(root, "engagements", "ev", "shots", String((added as { file: string }).file));
+		expect(existsSync(file)).toBe(true);
+
+		const list = dispatch(root, { op: "shots", engagement: "ev" }).items as { id: number }[];
+		expect(list).toHaveLength(1);
+		const data = dispatch(root, { op: "shotData", engagement: "ev", id: list[0]?.id });
+		expect(Buffer.from(String((data as { data: string }).data), "base64").toString()).toBe("hello");
+
+		expect(dispatch(root, { op: "shotDelete", engagement: "ev", id: list[0]?.id })).toMatchObject({ ok: true });
+		expect((dispatch(root, { op: "shots", engagement: "ev" }).items as unknown[]).length).toBe(0);
+		expect(existsSync(file)).toBe(false);
+
+		expect(dispatch(root, { op: "addAccess", engagement: "ev", access: { host: "10.0.0.5", username: "admin", method: "ssh" } })).toMatchObject({ ok: true });
+		expect((dispatch(root, { op: "access", engagement: "ev" }).items as unknown[]).length).toBe(1);
+
+		dispatch(root, { op: "addWebshell", engagement: "ev", webshell: { url: "http://10.0.0.5/s.jsp", pass_key: "x" } });
+		dispatch(root, { op: "addWebshell", engagement: "ev", webshell: { url: "http://10.0.0.5/s.jsp", pass_key: "x", status: "online" } });
+		const shells = dispatch(root, { op: "webshells", engagement: "ev" }).items as { id: number }[];
+		expect(shells).toHaveLength(1);
+		expect(dispatch(root, { op: "updateWebshell", engagement: "ev", id: shells[0]?.id, patch: { status: "offline", note: "挂了" } })).toMatchObject({ ok: true });
+		expect((dispatch(root, { op: "webshells", engagement: "ev" }).items as { status: string }[])[0]?.status).toBe("offline");
 	});
 
 	it("stages / saveStage", () => {
