@@ -104,6 +104,35 @@ describe("redteam api 分派", () => {
 		expect((dispatch(root, { op: "webshells", engagement: "ev" }).items as { status: string }[])[0]?.status).toBe("offline");
 	});
 
+	it("sessions / consoleDigest / snapshot / attackGraph / update*", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "sm", scope: [] });
+		dispatch(root, { op: "ingest", engagement: "sm", bundle: { assets: [{ ip: "10.0.0.5", ports: [{ port: 443 }] }] } });
+		const vuln = dispatch(root, { op: "addVuln", engagement: "sm", vuln: { title: "RCE", severity: "critical", asset_id: 1 } }) as { id: number };
+		dispatch(root, { op: "addChainStep", engagement: "sm", step: { title: "打点", vuln_id: vuln.id, stage: "boundary" } });
+		dispatch(root, { op: "addWebshell", engagement: "sm", webshell: { url: "http://x/s.jsp", status: "online" } });
+		dispatch(root, { op: "addTunnel", engagement: "sm", tunnel: { kind: "socks5", entry_kind: "target-http", status: "active" } });
+
+		const sessions = dispatch(root, { op: "sessions", engagement: "sm" }) as { totals: Record<string, number> };
+		expect(sessions.totals).toMatchObject({ webshells: 1, webshellsOnline: 1, tunnels: 1, tunnelsActive: 1, tunnelsLegit: 1 });
+
+		const digest = dispatch(root, { op: "consoleDigest", engagement: "sm" }) as { sections: Record<string, { count: number }> };
+		expect(digest.sections.assets?.count).toBe(1);
+		expect(digest.sections.vulns?.count).toBe(1);
+		expect(digest.sections.webshells?.count).toBe(1);
+
+		const snapshot = dispatch(root, { op: "snapshot", engagement: "sm" }) as { stats: { assets: number } };
+		expect(snapshot.stats.assets).toBe(1);
+
+		const attack = dispatch(root, { op: "attackGraph", engagement: "sm" }) as { nodes: { kind: string }[]; edges: { relation: string }[] };
+		expect(attack.nodes.map((node) => node.kind)).toEqual(expect.arrayContaining(["asset", "vuln", "step"]));
+		expect(attack.edges.map((edge) => edge.relation)).toEqual(expect.arrayContaining(["has", "leads"]));
+
+		expect(dispatch(root, { op: "updateVuln", engagement: "sm", id: vuln.id, patch: { status: "confirmed", gained: "server" } })).toMatchObject({ ok: true });
+		expect(dispatch(root, { op: "updateTunnel", engagement: "sm", id: 1, patch: { status: "closed" } })).toMatchObject({ ok: true });
+		expect(dispatch(root, { op: "assetLink", engagement: "sm", link: { src_kind: "asset", src_id: "1", dst_kind: "asset", dst_id: "2", relation: "reaches" } })).toMatchObject({ ok: true });
+	});
+
 	it("discoveryTimeline / domains / web / assess / assetTest", () => {
 		const root = tempRoot();
 		dispatch(root, { op: "openEngagement", name: "tl", scope: [] });

@@ -38,6 +38,11 @@ describe("redteam tools", () => {
 			"redteam_score_hit",
 			"redteam_score_report",
 			"redteam_report",
+			"redteam_sessions",
+			"redteam_attack_graph",
+			"redteam_vuln_update",
+			"redteam_tunnel_update",
+			"redteam_asset_link",
 		]);
 
 		const exec = { sessionId: "s-tools" };

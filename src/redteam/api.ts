@@ -279,6 +279,130 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			});
 		}
 
+		if (op === "sessions") {
+			return withDb(root, id, (db) => {
+				const shells = db.prepare("SELECT w.*, a.ip AS asset_ip FROM webshell w LEFT JOIN asset a ON a.id = w.asset_id ORDER BY w.id DESC").all() as Record<string, unknown>[];
+				const tunnels = db.prepare("SELECT t.*, a.ip AS asset_ip, w.url AS webshell_url FROM tunnel t LEFT JOIN asset a ON a.id = t.asset_id LEFT JOIN webshell w ON w.id = t.webshell_id ORDER BY t.id DESC")
+					.all() as Record<string, unknown>[];
+				const legit = (kind: unknown) => ["target-outbound", "target-http", "target-agent"].includes(String(kind));
+				const mapped: Record<string, unknown>[] = tunnels.map((row) => ({ ...row, legit: legit(row.entry_kind), entry_kind_label: row.entry_kind ?? null }));
+				const one = (sql: string): number => Number((db.prepare(sql).get() as { n?: number }).n ?? 0);
+				return {
+					ok: true,
+					webshells: shells,
+					tunnels: mapped,
+					totals: {
+						webshells: shells.length,
+						webshellsOnline: shells.filter((row) => row.status === "online").length,
+						tunnels: mapped.length,
+						tunnelsActive: mapped.filter((row) => row.status === "active").length,
+						tunnelsLegit: mapped.filter((row) => row.legit === true).length,
+						credentials: one("SELECT COUNT(*) AS n FROM credential"),
+						accesses: one("SELECT COUNT(*) AS n FROM access_session"),
+					},
+				};
+			});
+		}
+
+		if (op === "consoleDigest") {
+			return withDb(root, id, (db) => {
+				const count = (sql: string): number => Number((db.prepare(sql).get() as { n?: number }).n ?? 0);
+				const at = (sql: string): string | null => ((db.prepare(sql).get() as { t?: string | null }).t ?? null);
+				return {
+					ok: true,
+					sections: {
+						assets: { count: count("SELECT COUNT(*) AS n FROM asset"), at: at("SELECT MAX(COALESCE(discovered_at, first_seen, last_seen)) AS t FROM asset") },
+						vulns: { count: count("SELECT COUNT(*) AS n FROM vuln"), at: at("SELECT MAX(found_at) AS t FROM vuln") },
+						credentials: { count: count("SELECT COUNT(*) AS n FROM credential"), at: at("SELECT MAX(found_at) AS t FROM credential") },
+						access: { count: count("SELECT COUNT(*) AS n FROM access_session"), at: at("SELECT MAX(obtained_at) AS t FROM access_session") },
+						webshells: { count: count("SELECT COUNT(*) AS n FROM webshell"), at: at("SELECT MAX(updated_at) AS t FROM webshell") },
+						tunnels: { count: count("SELECT COUNT(*) AS n FROM tunnel"), at: at("SELECT MAX(updated_at) AS t FROM tunnel") },
+						steps: { count: count("SELECT COUNT(*) AS n FROM attack_step"), at: at("SELECT MAX(recorded_at) AS t FROM attack_step") },
+						hits: { count: count("SELECT COUNT(*) AS n FROM score_hit"), at: at("SELECT MAX(recorded_at) AS t FROM score_hit") },
+						shots: { count: count("SELECT COUNT(*) AS n FROM shot"), at: at("SELECT MAX(created_at) AS t FROM shot") },
+					},
+				};
+			});
+		}
+
+		if (op === "snapshot") {
+			return withDb(root, id, (db) => {
+				const engagement = listEngagements(root).find((item) => item.id === id);
+				return { ok: true, engagement, stats: stats(db), at: new Date().toISOString() };
+			});
+		}
+
+		if (op === "attackGraph") {
+			return withDb(root, id, (db) => {
+				const nodes: { id: string; kind: string; label: string; meta: Record<string, unknown> }[] = [];
+				const edges: { source: string; target: string; relation: string }[] = [];
+				const assets = db.prepare("SELECT id, ip FROM asset ORDER BY ip_int").all() as { id: number; ip: string }[];
+				for (const asset of assets) nodes.push({ id: `asset:${asset.id}`, kind: "asset", label: asset.ip, meta: {} });
+				const vulns = db.prepare("SELECT id, asset_id, title, severity FROM vuln").all() as { id: number; asset_id?: number | null; title?: string; severity?: string }[];
+				for (const vuln of vulns) {
+					nodes.push({ id: `vuln:${vuln.id}`, kind: "vuln", label: vuln.title ?? `vuln ${vuln.id}`, meta: { severity: vuln.severity } });
+					if (vuln.asset_id) edges.push({ source: `asset:${vuln.asset_id}`, target: `vuln:${vuln.id}`, relation: "has" });
+				}
+				const steps = db.prepare("SELECT id, asset_id, vuln_id, title, stage FROM attack_step ORDER BY COALESCE(seq, 999999), id").all() as {
+					id: number;
+					asset_id?: number | null;
+					vuln_id?: number | null;
+					title?: string;
+					stage?: string;
+				}[];
+				for (const step of steps) {
+					nodes.push({ id: `step:${step.id}`, kind: "step", label: step.title ?? `step ${step.id}`, meta: { stage: step.stage } });
+					if (step.vuln_id) edges.push({ source: `vuln:${step.vuln_id}`, target: `step:${step.id}`, relation: "leads" });
+					else if (step.asset_id) edges.push({ source: `asset:${step.asset_id}`, target: `step:${step.id}`, relation: "leads" });
+				}
+				return { ok: true, nodes, edges };
+			});
+		}
+
+		if (op === "updateVuln") {
+			return withDb(root, id, (db) => {
+				const patch = (req.patch ?? req) as Record<string, unknown>;
+				const vulnId = Number(req.id ?? patch.id);
+				const row = db.prepare("SELECT * FROM vuln WHERE id = ?").get(vulnId) as Record<string, unknown> | undefined;
+				if (!row) return { ok: false, error: "vuln not found" };
+				db.prepare(
+					`UPDATE vuln SET title = COALESCE(?, title), severity = COALESCE(?, severity), status = COALESCE(?, status),
+					   evidence = COALESCE(?, evidence), gained = COALESCE(?, gained), confidence = COALESCE(?, confidence),
+					   target = COALESCE(?, target), agent = COALESCE(?, agent) WHERE id = ?`,
+				).run(sqlv(patch.title), sqlv(patch.severity), sqlv(patch.status), sqlv(patch.evidence), sqlv(patch.gained), sqlv(patch.confidence), sqlv(patch.target), sqlv(patch.agent), vulnId);
+				return { ok: true };
+			});
+		}
+
+		if (op === "updateTunnel") {
+			return withDb(root, id, (db) => {
+				const patch = (req.patch ?? req) as Record<string, unknown>;
+				const tunnelId = Number(req.id ?? patch.id);
+				const row = db.prepare("SELECT * FROM tunnel WHERE id = ?").get(tunnelId) as Record<string, unknown> | undefined;
+				if (!row) return { ok: false, error: "tunnel not found" };
+				db.prepare(
+					`UPDATE tunnel SET status = COALESCE(?, status), last_check = COALESCE(?, last_check), check_note = COALESCE(?, check_note),
+					   latency_ms = COALESCE(?, latency_ms), note = COALESCE(?, note), updated_at = ? WHERE id = ?`,
+				).run(sqlv(patch.status), sqlv(patch.last_check), sqlv(patch.check_note), sqlv(patch.latency_ms), sqlv(patch.note), new Date().toISOString(), tunnelId);
+				return { ok: true };
+			});
+		}
+
+		if (op === "assetLink") {
+			return withDb(root, id, (db) => {
+				const link = (req.link ?? req) as Record<string, unknown>;
+				db.prepare(
+					`INSERT INTO edge(src_kind, src_id, dst_kind, dst_id, relation, confidence, first_seen, last_seen)
+					 VALUES(?,?,?,?,?,?,?,?)
+					 ON CONFLICT(src_kind, src_id, dst_kind, dst_id, relation) DO UPDATE SET last_seen = excluded.last_seen`,
+				).run(
+					String(link.src_kind ?? ""), String(link.src_id ?? ""), String(link.dst_kind ?? ""), String(link.dst_id ?? ""),
+					String(link.relation ?? "related"), sqlv(link.confidence), new Date().toISOString(), new Date().toISOString(),
+				);
+				return { ok: true };
+			});
+		}
+
 		if (op === "discoveryTimeline") {
 			return withDb(root, id, (db) => {
 				const limit = Math.min(Number(req.limit) || 50, 500);

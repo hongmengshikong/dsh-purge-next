@@ -1,4 +1,4 @@
-| dispatch op | 72 个 | 49 个 | 缺 23 || 红队工具 | 64 个 | 23 个 | 缺 41 |# dsh-purge-next 任务书
+| dispatch op | 72 个 | 56 个 | 缺 16 || 红队工具 | 64 个 | 28 个 | 缺 36 || dispatch op | 72 个 | 49 个 | 缺 23 || 红队工具 | 64 个 | 23 个 | 缺 41 |# dsh-purge-next 任务书
 
 > 这份文件是项目的**唯一进度真相**。每次开工先读「§2 当前状态」，收工前更新它。
 > 开发过程中发现新问题/新约束，**直接改这份文档**（改完在 §12 记一行），不要另开文档。
@@ -311,6 +311,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:11 — M5 P1 三：sessions / consoleDigest / snapshot / attackGraph / updateVuln / updateTunnel / assetLink；工具 +5。ops 56、tools 28；95 tests 全绿。
 - 2026-11-08 21:09 — M5 P1 续：discoveryTimeline / domains / web / assessAsset / assetTest；工具加 asset_get/stats/assess、score_list/hit/report、report。ops 49、tools 23。94 tests 全绿。
 - 2026-11-08 21:08 — M5 P1：graph（段→资产→端口→域名）、httpEvidence/addHttpEvidence、attackFiles/addAttackFile/readAttackFile；工具扩到 16 个。93 tests 全绿。
 - 2026-11-08 21:07 — M5 角色提示词：`prompts-data.ts`（6 角色 / 75 KB 默认正文）、`prompts.ts`（读写/重置）、3 个工具；工具总数 13。92 tests 全绿。

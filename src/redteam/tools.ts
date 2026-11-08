@@ -351,6 +351,71 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "report", engagement: id }));
 			},
 		},
+		{
+			name: "redteam_sessions",
+			description: "会话总览：webshell / 隧道（含是否真正跨越边界）+ 凭据/访问计数。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "sessions", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_attack_graph",
+			description: "攻击图谱：资产 → 漏洞 → 攻击步骤。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "attackGraph", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_vuln_update",
+			description: "更新漏洞状态/严重度/证据/拿到什么。",
+			parameters: {
+				engagement: { type: "string" },
+				id: { type: "number", required: true },
+				status: { type: "string" },
+				severity: { type: "string" },
+				evidence: { type: "string" },
+				gained: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "updateVuln", engagement: id, id: args.id, patch: args }));
+			},
+		},
+		{
+			name: "redteam_tunnel_update",
+			description: "更新隧道状态/备注/延迟。",
+			parameters: {
+				engagement: { type: "string" },
+				id: { type: "number", required: true },
+				status: { type: "string" },
+				note: { type: "string" },
+				latency_ms: { type: "number" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "updateTunnel", engagement: id, id: args.id, patch: args }));
+			},
+		},
+		{
+			name: "redteam_asset_link",
+			description: "建立实体关系边（asset/domain/port/vuln 之间）。",
+			parameters: {
+				engagement: { type: "string" },
+				src_kind: { type: "string", required: true },
+				src_id: { type: "string", required: true },
+				dst_kind: { type: "string", required: true },
+				dst_id: { type: "string", required: true },
+				relation: { type: "string", required: true },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "assetLink", engagement: id, link: args }));
+			},
+		},
 	];
 }
 
