@@ -61,6 +61,13 @@ describe("redteam tools", () => {
 			"redteam_access_list",
 			"redteam_tunnel_add",
 			"redteam_webshell_update",
+			"redteam_attack_chain",
+			"redteam_attack_path",
+			"redteam_preflight",
+			"redteam_session_check",
+			"redteam_unverified_count",
+			"redteam_evidence_list",
+			"redteam_evidence_record",
 		]);
 
 		const exec = { sessionId: "s-tools" };

@@ -346,6 +346,23 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			});
 		}
 
+		if (op === "preflight") {
+			return withDb(root, id, (db) => ({
+				ok: true,
+				engagement: id,
+				stats: stats(db),
+				prompt_seeded: false,
+				at: new Date().toISOString(),
+			}));
+		}
+
+		if (op === "unverifiedCount") {
+			return withDb(root, id, (db) => ({
+				ok: true,
+				count: Number((db.prepare("SELECT COUNT(*) AS n FROM vuln WHERE COALESCE(status, '') IN ('', 'candidate')").get() as { n: number }).n),
+			}));
+		}
+
 		if (op === "sessions") {
 			return withDb(root, id, (db) => {
 				const shells = db.prepare("SELECT w.*, a.ip AS asset_ip FROM webshell w LEFT JOIN asset a ON a.id = w.asset_id ORDER BY w.id DESC").all() as Record<string, unknown>[];

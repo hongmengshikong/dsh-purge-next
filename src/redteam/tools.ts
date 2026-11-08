@@ -626,6 +626,69 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "updateWebshell", engagement: id, id: args.id, patch: args }));
 			},
 		},
+		{
+			name: "redteam_attack_chain",
+			description: "攻击图谱（旧名，等价 attack_graph）。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "attackGraph", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_attack_path",
+			description: "攻击图谱（旧名，等价 attack_graph）。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "attackGraph", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_preflight",
+			description: "开打前自检：靶标统计与运行环境摘要。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "preflight", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_session_check",
+			description: "检查当前会话绑定的靶标是否仍存在。",
+			parameters: {},
+			execute(_args, exec) {
+				const view = bindingViewOf(exec);
+				return json({ ok: true, session: view, resolved: view.engagement });
+			},
+		},
+		{
+			name: "redteam_unverified_count",
+			description: "候选（未验证）漏洞数量。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "unverifiedCount", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_evidence_list",
+			description: "证据列表（等价 shot_list）。",
+			parameters: { engagement: { type: "string" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "shots", engagement: id, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_evidence_record",
+			description: "记录一张证据图（等价 shot_add，base64）。",
+			parameters: { engagement: { type: "string" }, data: { type: "string", required: true }, label: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "shotAdd", engagement: id, shot: args }));
+			},
+		},
 	];
 }
 

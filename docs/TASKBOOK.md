@@ -1,4 +1,4 @@
-| dispatch op | 72 个 | 61 个 | 缺 11 || 红队工具 | 64 个 | 46 个 | 缺 18 || dispatch op | 72 个 | 56 个 | 缺 16 || 红队工具 | 64 个 | 28 个 | 缺 36 || dispatch op | 72 个 | 49 个 | 缺 23 || 红队工具 | 64 个 | 23 个 | 缺 41 |# dsh-purge-next 任务书
+| dispatch op | 72 个 | 63 个 | 缺 9 || 红队工具 | 64 个 | 53 个 | 缺 11 || dispatch op | 72 个 | 56 个 | 缺 16 || 红队工具 | 64 个 | 28 个 | 缺 36 || dispatch op | 72 个 | 49 个 | 缺 23 || 红队工具 | 64 个 | 23 个 | 缺 41 |# dsh-purge-next 任务书
 
 > 这份文件是项目的**唯一进度真相**。每次开工先读「§2 当前状态」，收工前更新它。
 > 开发过程中发现新问题/新约束，**直接改这份文档**（改完在 §12 记一行），不要另开文档。
@@ -340,6 +340,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:23 — 旧名兼容：attack_chain/attack_path（→attackGraph）、preflight、session_check、unverified_count、evidence_list/record（→shots/shotAdd）；新增 preflight/unverifiedCount op。工具 53/64、op 63/72；98 tests 全绿。
 - 2026-11-08 21:22 — parity 审计脚本：`npm run audit:parity` 对比旧/新名单（新名必须是旧名子集）；补 access_add/list、tunnel_add、webshell_update 工具与 scoreChain op。工具 46/64、op 61/72；98 tests 全绿。
 - 2026-11-08 21:20 — UI 深度：得分概览表、截图画廊（按需加载 base64）、报告查看；`saveScorePoint` 对内置点只允许启用/停用。bundle 13762 B。98 tests 全绿。
 - 2026-11-08 21:19 — 发布检查：版本改为 0.2.2-rc.1（与宿主 1:1）；`npm pack --dry-run` 62 文件/161.9 kB；隔离实例验证 `/patches` 返回 84 行、client bundle 11211 B 含 `dshp-next-panel`。98 tests 全绿。
