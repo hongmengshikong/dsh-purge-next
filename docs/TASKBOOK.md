@@ -101,6 +101,7 @@
 | M7 更新路由 | ✅ | GET `/dsh-purge-next/update`；Dock 显示更新源状态 |
 | M5 stages | ✅ | `stages` / `saveStage`（五个作战阶段可改） |
 | M5 P1 图谱/证据 | ✅ | graph / httpEvidence / attackFiles 读写；工具扩到 23 个 |
+| 满血：UI 深度 | ✅ | 技能「新建」模板；知识库归类/仅已验证筛选；bundle 24525 B |
 | 满血：整页 UI | ✅ | 五页签：清洗 / 演练台 / 技能库 / 知识库（搜索+回填）/ 环境适配（工具表+整包分配+跳过）；bundle 22.4 KB |
 | 满血：技能库 | ✅ | skills.ts（frontmatter 解析/redteam+official 扫描/读写删）+ 4 op + 面板技能页签 |
 | 满血：证据账本 | ✅ | evidence-ledger.ts（SQLite + 语义哈希）+ 5 工具 + verify/upgrade/unknown |
@@ -351,6 +352,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-09 06:10+08 — UI 深度：技能页新建模板、知识库归类/已验证筛选。bundle 24525 B；119 tests。
 - 2026-11-09 06:08+08 — 满血 UI：知识库页（搜索/详情/回填保存）与环境适配页（工具表/整包分配/暂不配置）接入面板；bundle 22450 B。119 tests。
 - 2026-11-09 06:07+08 — 满血第四批：技能库（skills.ts + skillCatalog/Read/Save/Delete/Status + 面板第三页签）。**工具 65/65、op 缺 0**；119 tests。
 - 2026-11-09 06:04+08 — 满血第三批：evidence-ledger.ts（record/verify/upgrade/list/unresolved，哈希与旧实现一致）、unknown registry 3 工具、probeSessions 异步实测。**工具 65/65 全覆盖、op 缺 0**；115 tests。

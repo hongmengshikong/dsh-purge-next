@@ -100,6 +100,7 @@ export function Panel(): unknown {
 	const [reportText, setReportText] = useState("");
 	const [skills, setSkills] = useState<{ id: string; library: string; description: string; valid: boolean; error: string | null }[]>([]);
 	const [skillName, setSkillName] = useState("");
+	const [newSkillName, setNewSkillName] = useState("");
 	const [skillText, setSkillText] = useState("");
 	const [pocQuery, setPocQuery] = useState("");
 	const [pocItems, setPocItems] = useState<{ code: string; title: string; category?: string; verified?: number }[]>([]);
@@ -107,6 +108,8 @@ export function Panel(): unknown {
 	const [pocTitle, setPocTitle] = useState("");
 	const [pocCve, setPocCve] = useState("");
 	const [pocBody, setPocBody] = useState("");
+	const [pocCategory, setPocCategory] = useState("");
+	const [pocVerified, setPocVerified] = useState(false);
 	const [envSummary, setEnvSummary] = useState<Record<string, unknown> | null>(null);
 	const [envDir, setEnvDir] = useState("");
 	const [promptText, setPromptText] = useState("");
@@ -341,6 +344,24 @@ export function Panel(): unknown {
 							style: { width: "100%", height: 120, fontSize: 11, marginTop: 4, fontFamily: "monospace" },
 						}),
 						h("div", { style: styles.row },
+							h("input", {
+								value: newSkillName,
+								onChange: (event: { target: { value: string } }) => setNewSkillName(event.target.value),
+								placeholder: "新技能名（kebab-case）",
+								style: { flex: 1, fontSize: 11 },
+							}),
+							h("button", {
+								type: "button",
+								style: styles.button,
+								onClick: () => {
+									const name = newSkillName.trim();
+									if (!name) return;
+									setSkillName(name);
+									setSkillText("---\nname: " + name + "\ndescription: 新技能\n---\n\n");
+								},
+							}, "新建"),
+						),
+						h("div", { style: styles.row },
 							h("button", {
 								type: "button",
 								disabled: busy || !skillName,
@@ -384,11 +405,34 @@ export function Panel(): unknown {
 								placeholder: "CVE / 组件 / 关键字",
 								style: { flex: 1, fontSize: 11 },
 							}),
+							h("select", {
+								value: pocCategory,
+								onChange: (event: { target: { value: string } }) => setPocCategory(event.target.value),
+								style: { fontSize: 11 },
+							},
+								h("option", { value: "" }, "全部归类"),
+								...["rce", "deserialization", "file-upload", "sqli", "unauthorized", "auth-bypass", "weak-password", "ssrf", "xxe", "path-traversal", "info-leak", "privesc", "tunnel", "other"].map((code) =>
+									h("option", { key: code, value: code }, code),
+								),
+							),
+							h("label", { style: { fontSize: 11, display: "flex", alignItems: "center", gap: 2 } },
+								h("input", {
+									type: "checkbox",
+									checked: pocVerified,
+									onChange: (event: { target: { checked: boolean } }) => setPocVerified(event.target.checked),
+								}),
+								"仅已验证",
+							),
 							h("button", {
 								type: "button",
 								style: styles.button,
 								onClick: async () => {
-									const found = await postApi<{ items?: { code: string; title: string; category?: string; verified?: number }[] }>({ op: "pocSearch", q: pocQuery });
+									const found = await postApi<{ items?: { code: string; title: string; category?: string; verified?: number }[] }>({
+										op: "pocSearch",
+										q: pocQuery,
+										category: pocCategory || undefined,
+										verified: pocVerified || undefined,
+									});
 									setPocItems(found.items ?? []);
 								},
 							}, "搜索"),
@@ -424,8 +468,13 @@ export function Panel(): unknown {
 								onClick: async () => {
 									setBusy(true);
 									try {
-										await postApi({ op: "pocSave", poc: { title: pocTitle, cve: pocCve, content: pocBody, verified: true, source: "self" } });
-										const found = await postApi<{ items?: { code: string; title: string; category?: string; verified?: number }[] }>({ op: "pocSearch", q: pocQuery });
+										await postApi({ op: "pocSave", poc: { title: pocTitle, cve: pocCve, content: pocBody, verified: true, source: "self", category: pocCategory || undefined } });
+										const found = await postApi<{ items?: { code: string; title: string; category?: string; verified?: number }[] }>({
+											op: "pocSearch",
+											q: pocQuery,
+											category: pocCategory || undefined,
+											verified: pocVerified || undefined,
+										});
 										setPocItems(found.items ?? []);
 									} finally {
 										setBusy(false);
