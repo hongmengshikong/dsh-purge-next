@@ -8,6 +8,7 @@ import { hostApply, hostRevert, hostStatus, SUPPORTED_HOSTS, type HostApplyResul
 import { loadPatchTables } from "./engine/load.js";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
 import { seedPromptInjectAtBoot } from "./prompt/inject.js";
+import { describeUpdate, updateStatus, updateTarballUrl } from "./update/check.js";
 import type { PatchTables } from "./engine/types.js";
 
 export interface ServiceContext {
@@ -141,4 +142,25 @@ export function seedPayload(dshHome: string): SeedPayload {
 	} catch (error) {
 		return { ok: false, action: "error", path: "", error: error instanceof Error ? error.message : String(error) };
 	}
+}
+
+export interface UpdatePayload {
+	ok: boolean;
+	configured: boolean;
+	channel: string;
+	repo_url: string;
+	tarball_url: string | null;
+	note: string;
+}
+
+export function updatePayload(): UpdatePayload {
+	const status = updateStatus();
+	return {
+		ok: status.configured,
+		configured: status.configured,
+		channel: status.channel,
+		repo_url: status.repoUrl,
+		tarball_url: updateTarballUrl(),
+		note: describeUpdate(status),
+	};
 }

@@ -92,6 +92,8 @@
 | M6 真机 | ✅ | 3099 实例：client bundle 4269 B（含 dock/slot），`/dsh-purge-next/status` 200，`POST /redteam/api` bootstrap 200 |
 | M6 Dock 升级 | ✅ | 显示靶标列表/当前靶标/得分概览，可切换靶标；bundle 6932 B，纯逻辑单测 |
 | M7 更新骨架 | ✅ | 单通道 master；仓库未配置时 unconfigured，配置后生成 master tarball URL |
+| M7 安装补丁 | ✅ | `ensureProfileBundle`：bundles + cordis insert 幂等写入 |
+| M7 更新路由 | ✅ | GET `/dsh-purge-next/update`；Dock 显示更新源状态 |
 
 ---
 
@@ -275,6 +277,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:01 — M7 安装/更新：`update/install.ts`（bundles + insert 幂等写入）、`GET /dsh-purge-next/update`、Dock 更新源行。87 tests 全绿。
 - 2026-11-08 21:00 — M6/M7：Dock 接 bootstrap/scores 并可切换靶标（bundle 6932 B）；`update/check.ts` 单通道（无 stable/beta，未配置返回 unconfigured）。83 tests 全绿。
 - 2026-11-08 20:58 — 真机 UI：`/dsh-purge-next/status` 与 `POST /redteam/api` 在 3099 上分别 200/200；期间修掉 `ctx.tools` 未注入导致的插件激活失败（改为 `ctx.inject(["tools"])`）。
 - 2026-11-08 20:57 — M6 UI 骨架：client 用 `slots.inject("shell.overlay")` 注册 Dock（status 摘要 + 应用/还原按钮），bundle 4198 B；loader-sim 断言 slot 名与 id。79 tests 全绿。

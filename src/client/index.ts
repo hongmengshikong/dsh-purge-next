@@ -12,9 +12,11 @@ import {
 	formatBootstrap,
 	formatScore,
 	formatStatus,
+	formatUpdate,
 	type BootstrapPayload,
 	type ScorePayload,
 	type StatusPayload,
+	type UpdatePayload,
 } from "./view-model.js";
 
 export const name = "dsh-purge-next";
@@ -63,16 +65,19 @@ export function Dock(): unknown {
 	const [status, setStatus] = useState<StatusPayload | null>(null);
 	const [boot, setBoot] = useState<BootstrapPayload | null>(null);
 	const [score, setScore] = useState<ScorePayload | null>(null);
+	const [update, setUpdate] = useState<UpdatePayload | null>(null);
 	const [busy, setBusy] = useState(false);
 
 	const load = useCallback(async () => {
 		try {
-			const [nextStatus, nextBoot] = await Promise.all([
+			const [nextStatus, nextBoot, nextUpdate] = await Promise.all([
 				getJson<StatusPayload>("/dsh-purge-next/status"),
 				postApi<BootstrapPayload>({ op: "bootstrap" }),
+				getJson<UpdatePayload>("/dsh-purge-next/update"),
 			]);
 			setStatus(nextStatus);
 			setBoot(nextBoot);
+			setUpdate(nextUpdate);
 			const current = nextBoot.current;
 			if (current) setScore(await postApi<ScorePayload>({ op: "scores", engagement: current }));
 			else setScore(null);
@@ -120,6 +125,7 @@ export function Dock(): unknown {
 		h("div", { style: styles.muted }, formatStatus(status)),
 		h("div", { style: styles.muted }, formatBootstrap(boot)),
 		h("div", { style: styles.muted }, formatScore(score)),
+		h("div", { style: styles.muted }, formatUpdate(update)),
 		engagements.length > 0
 			? h(
 					"div",

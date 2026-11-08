@@ -52,3 +52,17 @@ export function engagementLabel(item: { id: string; name?: string }, current: st
 	const mark = current === item.id ? "● " : "";
 	return mark + (text.length > 24 ? `${text.slice(0, 23)}…` : text);
 }
+
+export interface UpdatePayload {
+	ok: boolean;
+	configured: boolean;
+	channel?: string;
+	repo_url?: string;
+	note?: string;
+}
+
+export function formatUpdate(payload: UpdatePayload | null): string {
+	if (!payload) return "更新源读取中…";
+	if (!payload.configured) return payload.note || "更新源未配置（仓库上传后填写 URL）";
+	return `更新源：${payload.channel ?? "master"} · ${payload.repo_url ?? ""}`;
+}

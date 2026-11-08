@@ -69,6 +69,7 @@ describe.skipIf(!HAS_FIXTURE)("plugin 入口", () => {
 				"/redteam/api",
 				"/dsh-purge-next/status",
 				"/dsh-purge-next/apply",
+				"/dsh-purge-next/update",
 				"/dsh-purge-next/revert",
 			]);
 			expect(existsSync(join(home, "prompt-inject.md"))).toBe(true);
