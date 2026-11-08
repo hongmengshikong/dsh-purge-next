@@ -94,6 +94,33 @@ describe("redteam api 分派", () => {
 });
 
 describe.skipIf(!existsSync(OLD_CORE))("api parity（对照旧 dispatch）", () => {
+	it("testStats / vulnStats / activeTests 与旧实现一致", async () => {
+		const old = (await import(`file://${OLD_CORE.replace(/\\/g, "/")}`)) as {
+			RedteamStore: new (root: string) => {
+				testStats(id: string): Record<string, number>;
+				vulnStats(id: string): Record<string, unknown>;
+				activeTests(id: string, f?: Record<string, unknown>): { queue: { ip: string }[]; untested: number };
+				close?: () => void;
+			};
+		};
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "stats", scope: [] });
+		dispatch(root, { op: "ingest", engagement: "stats", bundle: { assets: [{ ip: "10.0.0.5", state: "live" }, { ip: "10.0.0.6" }] } });
+		const first = dispatch(root, { op: "addVuln", engagement: "stats", vuln: { title: "SQLi", severity: "high", asset_id: 1 } });
+		const second = dispatch(root, { op: "addVuln", engagement: "stats", vuln: { title: "SQLi", severity: "high", asset_id: 1 } });
+		expect((first as { updated?: boolean }).updated).toBeUndefined();
+		expect(second).toMatchObject({ ok: true, updated: true });
+
+		const oldStore = new old.RedteamStore(root);
+		expect(dispatch(root, { op: "testStats", engagement: "stats" }).stats).toEqual(oldStore.testStats("stats"));
+		expect(dispatch(root, { op: "vulnStats", engagement: "stats" }).stats).toEqual(oldStore.vulnStats("stats"));
+		const mine = dispatch(root, { op: "activeTests", engagement: "stats" }) as { queue: { ip: string }[]; untested: number };
+		const theirs = oldStore.activeTests("stats");
+		expect(mine.untested).toBe(theirs.untested);
+		expect(mine.queue.map((row) => row.ip)).toEqual(theirs.queue.map((row) => row.ip));
+		oldStore.close?.();
+	});
+
 	it("bootstrap / openEngagement / scores.summary 一致", async () => {
 		const old = (await import(`file://${OLD_CORE.replace(/\\/g, "/")}`)) as {
 			RedteamStore: new (root: string) => unknown;

@@ -95,6 +95,7 @@
 | M7 安装补丁 | ✅ | `ensureProfileBundle`：bundles + cordis insert 幂等写入 |
 | M7 更新路由 | ✅ | GET `/dsh-purge-next/update`；Dock 显示更新源状态 |
 | M5 stages | ✅ | `stages` / `saveStage`（五个作战阶段可改） |
+| M5 统计 op | ✅ | `testStats` / `vulnStats` / `activeTests`；`addVuln` 按 (asset,cve,target) 幂等，与旧实现一致 |
 
 ---
 
@@ -306,6 +307,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:03 — M5 统计：补 `testStats` / `vulnStats` / `activeTests`；`addVuln` 对齐旧幂等语义（同标题第二次 updated=true）。与旧 store 对照三组 stats 完全一致。
 - 2026-11-08 21:02 — parity 审计：旧 64 工具/72 op vs 新 10/21；差距按 P0/P1/P2 写入 §9.1；补 stages/saveStage op。88 tests 全绿。
 - 2026-11-08 21:01 — M7 安装/更新：`update/install.ts`（bundles + insert 幂等写入）、`GET /dsh-purge-next/update`、Dock 更新源行。87 tests 全绿。
 - 2026-11-08 21:00 — M6/M7：Dock 接 bootstrap/scores 并可切换靶标（bundle 6932 B）；`update/check.ts` 单通道（无 stable/beta，未配置返回 unconfigured）。83 tests 全绿。

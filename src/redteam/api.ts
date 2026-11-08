@@ -14,6 +14,7 @@ import { listAssets, stats, upsertAsset } from "./store/assets.js";
 import { addScoreHit } from "./store/score-hit.js";
 import { listScoreBoard } from "./store/score-board.js";
 import { seedScorePoints, listStages } from "./store/scoring.js";
+import { SCOPE_SQL } from "./store/schema.js";
 
 type SqlValue = string | number | null;
 const sqlv = (value: unknown): SqlValue =>
@@ -106,6 +107,51 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 
 		if (op === "stats") return withDb(root, id, (db) => ({ ok: true, stats: stats(db) }));
 
+		if (op === "testStats") {
+			return withDb(root, id, (db) => {
+				const rows = db.prepare("SELECT COALESCE(test_status, 'untested') AS s, COUNT(*) AS n FROM asset GROUP BY s").all() as { s: string; n: number }[];
+				const out: Record<string, number> = { untested: 0, testing: 0, tested: 0, blocked: 0, abandoned: 0, no_surface: 0 };
+				for (const row of rows) out[row.s] = row.n;
+				return { ok: true, stats: out };
+			});
+		}
+
+		if (op === "vulnStats") {
+			return withDb(root, id, (db) => {
+				const bySeverity: Record<string, number> = {};
+				for (const row of db.prepare("SELECT severity, COUNT(*) AS n FROM vuln GROUP BY severity").all() as { severity: string; n: number }[]) bySeverity[row.severity] = row.n;
+				const byStatus: Record<string, number> = {};
+				for (const row of db.prepare("SELECT status, COUNT(*) AS n FROM vuln GROUP BY status").all() as { status: string; n: number }[]) byStatus[row.status] = row.n;
+				const withGained = Number((db.prepare("SELECT COUNT(*) AS n FROM vuln WHERE COALESCE(gained,'') <> ''").get() as { n: number }).n);
+				const withEvidence = Number((db.prepare("SELECT COUNT(*) AS n FROM vuln WHERE COALESCE(evidence,'') <> '' OR id IN (SELECT vuln_id FROM http_evidence WHERE vuln_id IS NOT NULL)").get() as { n: number }).n);
+				const rawTargets = db.prepare("SELECT target, (SELECT ip FROM asset WHERE id = vuln.asset_id) AS ip FROM vuln").all() as { target?: string | null; ip?: string | null }[];
+				const targetGroups = new Set(rawTargets.map((row) => String(row.target || row.ip || ""))).size;
+				return { ok: true, stats: { total: Object.values(bySeverity).reduce((a, b) => a + b, 0), bySeverity, byStatus, withGained, withEvidence, targetGroups } };
+			});
+		}
+
+		if (op === "activeTests") {
+			return withDb(root, id, (db) => {
+				const limit = Math.min(Number(req.limit) || 8, 50);
+				const select = `SELECT a.id, a.ip, a.segment_cidr, COALESCE(a.scope, (${SCOPE_SQL})) AS scope, a.state,
+				  COALESCE(a.test_status, 'untested') AS test_status, a.test_notes, a.test_surface,
+				  a.test_updated_at, a.test_updated_by, COALESCE(a.blocked_count, 0) AS blocked_count,
+				  a.priority, a.potential,
+				  (SELECT COUNT(*) FROM port p WHERE p.asset_id = a.id AND p.state = 'open') AS open_ports,
+				  (SELECT COUNT(*) FROM vuln v WHERE v.asset_id = a.id AND v.status IN ('confirmed','exploited')) AS vulns,
+				  (SELECT COUNT(*) FROM webshell w WHERE w.asset_id = a.id) AS webshells,
+				  (SELECT COUNT(*) FROM tunnel t WHERE t.asset_id = a.id) AS tunnels`;
+				const testing = db.prepare(`${select} FROM asset a WHERE COALESCE(a.test_status, 'untested') = 'testing' ORDER BY a.test_updated_at DESC, a.id DESC LIMIT ?`).all(limit);
+				const recent = db.prepare(`${select} FROM asset a WHERE a.test_updated_at IS NOT NULL AND COALESCE(a.test_status, 'untested') <> 'testing' ORDER BY a.test_updated_at DESC LIMIT ?`).all(limit);
+				const queue = db.prepare(`${select} FROM asset a WHERE COALESCE(a.test_status, 'untested') = 'untested' ORDER BY CASE COALESCE(a.priority, '') WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END, (SELECT COUNT(*) FROM port p WHERE p.asset_id = a.id AND p.state = 'open') DESC, a.ip_int LIMIT ?`).all(limit);
+				const untested = Number((db.prepare("SELECT COUNT(*) AS n FROM asset a WHERE COALESCE(a.test_status, 'untested') = 'untested'").get() as { n: number }).n);
+				const statRows = db.prepare("SELECT COALESCE(test_status, 'untested') AS s, COUNT(*) AS n FROM asset GROUP BY s").all() as { s: string; n: number }[];
+				const statsOut: Record<string, number> = { untested: 0, testing: 0, tested: 0, blocked: 0, abandoned: 0, no_surface: 0 };
+				for (const row of statRows) statsOut[row.s] = row.n;
+				return { ok: true, testing, recent, queue, stats: statsOut, untested, at: new Date().toISOString() };
+			});
+		}
+
 		if (op === "stages") return withDb(root, id, (db) => ({ ok: true, items: listStages(db) }));
 
 		if (op === "saveStage") {
@@ -153,16 +199,26 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 		if (op === "addVuln") {
 			return withDb(root, id, (db) => {
 				const v = (req.vuln ?? req) as Record<string, unknown>;
-				const result = db
-					.prepare(
-						`INSERT INTO vuln(asset_id, port_id, cve, title, severity, source, confidence, status, evidence, target, found_by_agent, found_at, gained, agent)
-						 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-					)
-					.run(
-						sqlv(v.asset_id), sqlv(v.port_id), sqlv(v.cve), sqlv(v.title), sqlv(v.severity),
-						sqlv(v.source), sqlv(v.confidence), sqlv(v.status) ?? "open", sqlv(v.evidence), sqlv(v.target),
-						sqlv(v.found_by_agent), sqlv(v.found_at), sqlv(v.gained), sqlv(v.agent),
+				const severity = ["info", "low", "medium", "high", "critical"].includes(String(v.severity)) ? String(v.severity) : "info";
+				const status = ["candidate", "confirmed", "exploited", "false_positive", "fixed"].includes(String(v.status)) ? String(v.status) : "candidate";
+				const existing = v.cve
+					? (db.prepare("SELECT id FROM vuln WHERE asset_id IS ? AND cve = ? AND COALESCE(target, '') = ?").get(sqlv(v.asset_id), String(v.cve), String(v.target ?? "")) as { id?: number } | undefined)
+					: (db.prepare("SELECT id FROM vuln WHERE asset_id IS ? AND COALESCE(cve, '') = '' AND title = ? AND COALESCE(target, '') = ?").get(sqlv(v.asset_id), String(v.title ?? ""), String(v.target ?? "")) as { id?: number } | undefined);
+				if (existing?.id) {
+					db.prepare(`UPDATE vuln SET title = COALESCE(?, title), severity = ?, status = COALESCE(?, status),
+					   evidence = COALESCE(?, evidence), confidence = COALESCE(?, confidence), source = COALESCE(?, source),
+					   target = COALESCE(?, target), found_by_agent = COALESCE(?, found_by_agent), gained = COALESCE(?, gained), agent = COALESCE(?, agent)
+					 WHERE id = ?`).run(
+						sqlv(v.title), severity, sqlv(v.status), sqlv(v.evidence), sqlv(v.confidence), sqlv(v.source),
+						sqlv(v.target), sqlv(v.found_by_agent), sqlv(v.gained), sqlv(v.agent), existing.id,
 					);
+					return { ok: true, id: existing.id, updated: true };
+				}
+				const result = db.prepare(`INSERT INTO vuln(asset_id, port_id, cve, title, severity, source, confidence, status, evidence, target, gained, found_by_agent, found_at, agent)
+				 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+					sqlv(v.asset_id), sqlv(v.port_id), sqlv(v.cve), sqlv(v.title), severity, sqlv(v.source), sqlv(v.confidence), status,
+					sqlv(v.evidence), sqlv(v.target), sqlv(v.gained), sqlv(v.found_by_agent), new Date().toISOString(), sqlv(v.agent),
+				);
 				return { ok: true, id: Number((result as { lastInsertRowid?: number | bigint }).lastInsertRowid ?? 0) };
 			});
 		}
