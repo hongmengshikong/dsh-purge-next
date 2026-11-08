@@ -570,6 +570,62 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "chain", engagement: id, limit: args.limit }));
 			},
 		},
+		{
+			name: "redteam_access_add",
+			description: "记录一次可用访问（host/username/method/privilege）。",
+			parameters: {
+				engagement: { type: "string" },
+				host: { type: "string", required: true },
+				username: { type: "string" },
+				method: { type: "string" },
+				privilege: { type: "string" },
+				session_ref: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addAccess", engagement: id, access: args }));
+			},
+		},
+		{
+			name: "redteam_access_list",
+			description: "列出访问会话。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "access", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_tunnel_add",
+			description: "登记内网隧道（entry_kind 决定是否算跨越边界）。",
+			parameters: {
+				engagement: { type: "string" },
+				kind: { type: "string" },
+				listen: { type: "string" },
+				entry: { type: "string" },
+				reach: { type: "string" },
+				entry_kind: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addTunnel", engagement: id, tunnel: args }));
+			},
+		},
+		{
+			name: "redteam_webshell_update",
+			description: "更新 webshell 状态/备注/延迟。",
+			parameters: {
+				engagement: { type: "string" },
+				id: { type: "number", required: true },
+				status: { type: "string" },
+				note: { type: "string" },
+				latency_ms: { type: "number" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "updateWebshell", engagement: id, id: args.id, patch: args }));
+			},
+		},
 	];
 }
 

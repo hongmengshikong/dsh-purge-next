@@ -31,7 +31,8 @@
     "test:loader": "vitest run tests/loader-sim.test.ts",
     "gate": "npm run build && node lib/tools/gate.js",
     "prepare": "npm run build",
-    "fixture:fetch": "node src/tools/fixture.ts"
+    "fixture:fetch": "node src/tools/fixture.ts",
+    "audit:parity": "node src/tools/parity-audit.ts"
   },
   "dependencies": {},
   "devDependencies": {

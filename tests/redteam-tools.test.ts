@@ -57,6 +57,10 @@ describe("redteam tools", () => {
 			"redteam_score_point_save",
 			"redteam_report_targets",
 			"redteam_chain",
+			"redteam_access_add",
+			"redteam_access_list",
+			"redteam_tunnel_add",
+			"redteam_webshell_update",
 		]);
 
 		const exec = { sessionId: "s-tools" };

@@ -661,6 +661,28 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			return { ok: result.ok, reset: result.reset };
 		}
 
+		if (op === "scoreChain") {
+			return withDb(root, id, (db) => {
+				const board = listScoreBoard(db);
+				const stages = listStages(db);
+				const items = board.items.flatMap((item) => item.hits.map((hit) => ({ ...hit, code: item.code, point_name: item.name, stage_code: null })));
+				return {
+					ok: true,
+					items,
+					stages,
+					achieved: board.items.filter((item) => item.counted > 0).map((item) => ({ code: item.code, name: item.name, points: item.earned })),
+					missing: board.items.filter((item) => item.enabled && item.hits.length === 0).map((item) => ({ code: item.code, name: item.name, points: item.points })),
+					summary: {
+						hits: board.summary.hitCount,
+						points: board.summary.achievedPoints,
+						countedHits: board.summary.countedHits,
+						selfCreatedHits: board.summary.selfCreatedHits,
+						serviceCappedHits: board.summary.serviceCappedHits,
+					},
+				};
+			});
+		}
+
 		if (op === "scoreReport") {
 			return withDb(root, id, (db) => {
 				const board = listScoreBoard(db);
