@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { hostApply, hostPaths, hostRevert, hostStatus } from "../src/engine/host.js";
+import { restoreMissingOriginals } from "../src/engine/revert.js";
 import { loadPatchTables } from "../src/engine/load.js";
 
 const ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
@@ -71,6 +72,29 @@ describe.skipIf(!HAS_FIXTURE)("host 入口", () => {
 
 		hostRevert(copy);
 		expect(hashTree(copy)).toBe(before);
+	});
+
+	it("原文件被删后可从 .bak 自愈", () => {
+		const copy = copyHost();
+		hostApply(copy, "0.2.2-rc.1", tables);
+		const findBak = (dir: string): string | null => {
+			for (const name of readdirSync(dir)) {
+				const fp = join(dir, name);
+				if (statSync(fp).isDirectory()) {
+					const hit = findBak(fp);
+					if (hit) return hit;
+				} else if (name.endsWith(".dshpurge.bak")) return fp;
+			}
+			return null;
+		};
+		const backup = findBak(copy);
+		expect(backup).not.toBeNull();
+		const victim = (backup as string).slice(0, -".dshpurge.bak".length);
+		const original = readFileSync(backup as string, "utf8");
+		rmSync(victim);
+		const restored = restoreMissingOriginals(copy);
+		expect(restored.reverted).toBeGreaterThan(0);
+		expect(readFileSync(victim, "utf8")).toBe(original);
 	});
 
 	it("二次 apply 幂等", () => {

@@ -14,6 +14,8 @@ import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } fro
 import { dirname, join } from "node:path";
 import type { CompiledPatch, CompiledReplacement, PatchTables } from "./types.js";
 import { appliesOnWeb } from "./status.js";
+import { collapseDuplicateLegacyApplyPath, legacyApplyPathStarts, rewriteStaleLegacyApplyCall, STALE_LEGACY_APPLY_CALL } from "./legacy.js";
+import { sanitizeYamlPersonaScalars } from "./yaml.js";
 
 const asLf = (text: string): string => text.replace(/\r\n/g, "\n");
 const isYamlPath = (fp: string): boolean => /\.ya?ml$/i.test(fp);
@@ -36,6 +38,8 @@ function copyRegExp(pattern: RegExp, global: boolean): RegExp {
 
 function patchApplied(text: string, patch: CompiledPatch): boolean {
 	const hay = asLf(text);
+	if (patch.id === 42 && legacyApplyPathStarts(hay) > 1) return false;
+	if (patch.id === 42 && hay.includes(STALE_LEGACY_APPLY_CALL)) return false;
 	if (Array.isArray(patch.forbid) && patch.forbid.some((marker) => hay.includes(asLf(marker)))) return false;
 	if (Array.isArray(patch.markers) && patch.markers.length > 0) {
 		const hit = (marker: string) => hay.includes(asLf(marker));
@@ -95,8 +99,21 @@ export interface ApplyTextResult {
 }
 
 export function applyReplacementsToText(text: string, patch: CompiledPatch, fp = ""): ApplyTextResult {
-	const source = text;
-	if (patch.skipIfMarked && patchApplied(source, patch)) return { text: source, changed: false };
+	let source = text;
+	let preChanged = false;
+	if (patch.id === 42) {
+		const collapsed = collapseDuplicateLegacyApplyPath(source);
+		if (collapsed !== source) {
+			source = collapsed;
+			preChanged = true;
+		}
+		const rewritten = rewriteStaleLegacyApplyCall(source);
+		if (rewritten !== source) {
+			source = rewritten;
+			preChanged = true;
+		}
+	}
+	if (patch.skipIfMarked && patchApplied(source, patch)) return { text: source, changed: preChanged };
 
 	const crlf = source.includes("\r\n");
 	const yaml = isYamlPath(fp);
@@ -142,7 +159,7 @@ export function applyReplacementsToText(text: string, patch: CompiledPatch, fp =
 		changed = true;
 	}
 
-	return { text: crlf ? out.replace(/\n/g, "\r\n") : out, changed };
+	return { text: crlf ? out.replace(/\n/g, "\r\n") : out, changed: changed || preChanged };
 }
 
 export interface RollupInput {
@@ -226,7 +243,11 @@ export function applyPatchesToRoot(
 					result.lastError = "read_error";
 					continue;
 				}
-				const applied = applyReplacementsToText(text, patch, rel);
+				let applied = applyReplacementsToText(text, patch, rel);
+				if (isYamlPath(rel) && !applied.hitMismatch) {
+					const cleaned = sanitizeYamlPersonaScalars(applied.text);
+					if (cleaned !== applied.text) applied = { text: cleaned, changed: true };
+				}
 				if (applied.hitMismatch) {
 					result.lastError = `hit_count_mismatch:#${patch.id}:${applied.hitMismatch.actual}/${applied.hitMismatch.expected}`;
 					continue;

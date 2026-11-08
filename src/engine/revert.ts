@@ -12,6 +12,45 @@ export interface RevertResult {
 	removed: number;
 }
 
+export function restoreMissingOriginals(root: string): RevertResult {
+	let restored = 0;
+	const walk = (dir: string): void => {
+		let entries: string[];
+		try {
+			entries = readdirSync(dir);
+		} catch {
+			return;
+		}
+		for (const name of entries) {
+			const fp = join(dir, name);
+			let isDir = false;
+			try {
+				isDir = statSync(fp).isDirectory();
+			} catch {
+				continue;
+			}
+			if (isDir) {
+				walk(fp);
+				continue;
+			}
+			if (!name.endsWith(".dshpurge.bak")) continue;
+			const original = fp.slice(0, -".dshpurge.bak".length);
+			let missing = false;
+			try {
+				missing = !existsSync(original) || statSync(original).size === 0;
+			} catch {
+				missing = true;
+			}
+			if (!missing) continue;
+			copyFileSync(fp, original);
+			rmSync(fp, { force: true });
+			restored += 1;
+		}
+	};
+	if (existsSync(root)) walk(root);
+	return { reverted: restored, removed: 0 };
+}
+
 export function revertRoot(root: string): RevertResult {
 	let reverted = 0;
 	let removed = 0;

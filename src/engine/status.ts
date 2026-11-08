@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CompiledPatch, CompiledPattern, PatchOutcome, PatchTables } from "./types.js";
+import { legacyApplyPathStarts, STALE_LEGACY_APPLY_CALL } from "./legacy.js";
 
 /** 与旧仓库 core.js 对齐的判定原语（status 只读，不改文件）。 */
 
@@ -33,6 +34,8 @@ const isLayoutSoft = (p: CompiledPatch): boolean => LAYOUT_SOFT_IDS.has(p.id) ||
 
 function patchApplied(text: string, patch: CompiledPatch): boolean {
 	const hay = asLf(text);
+	if (patch.id === 42 && legacyApplyPathStarts(hay) > 1) return false;
+	if (patch.id === 42 && hay.includes(STALE_LEGACY_APPLY_CALL)) return false;
 	if (Array.isArray(patch.forbid) && patch.forbid.some((marker) => hay.includes(asLf(marker)))) return false;
 	if (Array.isArray(patch.markers) && patch.markers.length > 0) {
 		const hit = (marker: string) => hay.includes(asLf(marker));
