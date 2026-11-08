@@ -121,6 +121,25 @@ describe.skipIf(!existsSync(OLD_CORE))("api parity（对照旧 dispatch）", () 
 		oldStore.close?.();
 	});
 
+	it("scoreReport summary 与 report 骨架", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "rep", scope: ["10.0.0.0/24"] });
+		dispatch(root, { op: "ingest", engagement: "rep", bundle: { assets: [{ ip: "10.0.0.5", ports: [{ port: 443 }] }] } });
+		dispatch(root, { op: "addScoreHit", engagement: "rep", hit: { code: CODE, evidence: "admin", target: "10.0.0.5:443", asset_id: 1 } });
+		dispatch(root, { op: "addTunnel", engagement: "rep", tunnel: { kind: "socks5", entry_kind: "target-http", entry: "10.0.0.5:443" } });
+
+		const report = dispatch(root, { op: "scoreReport", engagement: "rep" }) as { summary: Record<string, number> };
+		const scores = dispatch(root, { op: "scores", engagement: "rep" }) as { summary: Record<string, number> };
+		expect(report.summary.points).toBe(scores.summary.achievedPoints);
+		expect(report.summary.hits).toBe(scores.summary.hitCount);
+		expect(report.summary.countedHits).toBe(scores.summary.countedHits);
+		expect(report.summary.tunnelsLegit).toBe(1);
+
+		const md = dispatch(root, { op: "report", engagement: "rep" });
+		expect(String(md.markdown)).toContain("演练成果报告");
+		expect(String(md.markdown)).toContain("10.0.0.5");
+	});
+
 	it("bootstrap / openEngagement / scores.summary 一致", async () => {
 		const old = (await import(`file://${OLD_CORE.replace(/\\/g, "/")}`)) as {
 			RedteamStore: new (root: string) => unknown;

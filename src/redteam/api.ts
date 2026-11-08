@@ -152,6 +152,62 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			});
 		}
 
+		if (op === "scoreReport") {
+			return withDb(root, id, (db) => {
+				const board = listScoreBoard(db);
+				const achieved = board.items.filter((item) => item.counted > 0).map((item) => ({ code: item.code, name: item.name, points: item.earned }));
+				const missing = board.items.filter((item) => item.enabled && item.hits.length === 0).map((item) => ({ code: item.code, name: item.name, points: item.points }));
+				const tunnels = db.prepare("SELECT entry_kind FROM tunnel").all() as { entry_kind?: string | null }[];
+				const legit = tunnels.filter((row) => ["target-outbound", "target-http", "target-agent"].includes(String(row.entry_kind))).length;
+				return {
+					ok: true,
+					items: board.items.flatMap((item) => item.hits.map((hit) => ({ ...hit, code: item.code, point_name: item.name }))),
+					achieved,
+					missing,
+					summary: {
+						hits: board.summary.hitCount,
+						points: board.summary.achievedPoints,
+						totalPoints: board.summary.achievedPoints,
+						countedHits: board.summary.countedHits,
+						achievedCount: achieved.length,
+						missingCount: missing.length,
+						missingPoints: missing.reduce((sum, item) => sum + item.points, 0),
+						selfCreatedHits: board.summary.selfCreatedHits,
+						serviceCappedHits: board.summary.serviceCappedHits,
+						tunnelsLegit: legit,
+						tunnelsSelfOnly: tunnels.length - legit,
+					},
+				};
+			});
+		}
+
+		if (op === "report") {
+			return withDb(root, id, (db) => {
+				const meta = listEngagements(root).find((item) => item.id === id);
+				const assets = db.prepare("SELECT COUNT(*) AS n FROM asset").get() as { n: number };
+				const vulns = db.prepare("SELECT COUNT(*) AS n FROM vuln").get() as { n: number };
+				const creds = db.prepare("SELECT COUNT(*) AS n FROM credential").get() as { n: number };
+				const steps = db.prepare("SELECT COUNT(*) AS n FROM attack_step").get() as { n: number };
+				const board = listScoreBoard(db);
+				const lines = [
+					"# 演练成果报告",
+					"",
+					"- 靶标：" + (meta?.name ?? id) + "（" + id + "）",
+					"- 授权范围：" + ((meta?.scope ?? []).join(", ") || "未标注"),
+					"- 资产：" + Number(assets.n) + " · 漏洞：" + Number(vulns.n) + " · 凭据：" + Number(creds.n) + " · 攻击链步骤：" + Number(steps.n),
+					"- 得分：" + board.summary.achievedPoints + "（计分命中 " + board.summary.countedHits + "/" + board.summary.hitCount + "）",
+					"",
+					"## 1. 资产面",
+					"",
+				];
+				for (const row of db.prepare("SELECT ip, state, primary_name FROM asset ORDER BY ip_int").all() as { ip: string; state?: string; primary_name?: string }[]) {
+					lines.push("- " + row.ip + " · " + (row.state ?? "unknown") + (row.primary_name ? " · " + row.primary_name : ""));
+				}
+				if (Number(assets.n) === 0) lines.push("（没有资产）");
+				return { ok: true, markdown: lines.join("\n"), generated_at: new Date().toISOString() };
+			});
+		}
+
 		if (op === "stages") return withDb(root, id, (db) => ({ ok: true, items: listStages(db) }));
 
 		if (op === "saveStage") {
