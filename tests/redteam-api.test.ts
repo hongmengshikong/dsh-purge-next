@@ -114,6 +114,8 @@ describe("redteam api 分派", () => {
 		expect(dispatch(root, { op: "deleteScorePoint", engagement: "sp", id: (added as { id: number }).id })).toMatchObject({ ok: true });
 		expect((dispatch(root, { op: "scores", engagement: "sp" }).items as { code: string }[]).map((item) => item.code)).not.toContain("custom-x");
 		expect(dispatch(root, { op: "deleteScorePoint", engagement: "sp", id: 1 })).toMatchObject({ ok: false, builtin: true });
+		expect(dispatch(root, { op: "saveScorePoint", engagement: "sp", point: { id: 1, enabled: 0 } })).toMatchObject({ ok: true, builtin: true });
+		expect(dispatch(root, { op: "saveScorePoint", engagement: "sp", point: { id: 1, points: 999 } })).toMatchObject({ ok: false, builtin: true });
 
 		dispatch(root, { op: "addVuln", engagement: "sp", vuln: { title: "SQLi", severity: "high", target: "10.0.0.5" } });
 		const targets = dispatch(root, { op: "reportTargets", engagement: "sp" }).items as { target: string; vulns: number }[];

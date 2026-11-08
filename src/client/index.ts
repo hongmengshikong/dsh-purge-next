@@ -94,6 +94,10 @@ export function Panel(): unknown {
 	const [update, setUpdate] = useState<UpdatePayload | null>(null);
 	const [patches, setPatches] = useState<PatchRow[]>([]);
 	const [assets, setAssets] = useState<AssetRow[]>([]);
+	const [scoreItems, setScoreItems] = useState<{ id: number; code: string; name: string; points: number; counted: number; earned: number; enabled: boolean }[]>([]);
+	const [shots, setShots] = useState<{ id: number; label?: string; file: string }[]>([]);
+	const [shotView, setShotView] = useState<{ mime: string; data: string } | null>(null);
+	const [reportText, setReportText] = useState("");
 	const [promptText, setPromptText] = useState("");
 	const [busy, setBusy] = useState(false);
 
@@ -111,12 +115,15 @@ export function Panel(): unknown {
 			setPatches(nextPatches.rows ?? []);
 			const current = nextBoot.current;
 			if (current) {
-				const [nextScore, nextAssets] = await Promise.all([
-					postApi<ScorePayload>({ op: "scores", engagement: current }),
+				const [nextScore, nextAssets, nextShots] = await Promise.all([
+					postApi<ScorePayload & { items?: { id: number; code: string; name: string; points: number; counted: number; earned: number; enabled: boolean }[] }>({ op: "scores", engagement: current }),
 					postApi<{ items?: AssetRow[] }>({ op: "assets", engagement: current, limit: 50 }),
+					postApi<{ items?: { id: number; label?: string; file: string }[] }>({ op: "shots", engagement: current, limit: 20 }),
 				]);
 				setScore(nextScore);
+				setScoreItems(nextScore.items ?? []);
 				setAssets(nextAssets.items ?? []);
+				setShots(nextShots.items ?? []);
 			} else {
 				setScore(null);
 				setAssets([]);
@@ -229,9 +236,58 @@ export function Panel(): unknown {
 							),
 						)),
 					),
+					h("table", { style: styles.table },
+						h("thead", null, h("tr", null,
+							h("th", { style: styles.cell }, "得分点"),
+							h("th", { style: styles.cell }, "分值"),
+							h("th", { style: styles.cell }, "命中"),
+							h("th", { style: styles.cell }, "已得"),
+						)),
+						h("tbody", null, ...scoreItems.slice(0, 12).map((item) =>
+							h("tr", { key: item.code },
+								h("td", { style: styles.cell }, item.name),
+								h("td", { style: styles.cell }, String(item.points)),
+								h("td", { style: styles.cell }, String(item.counted)),
+								h("td", { style: styles.cell }, String(item.earned)),
+							),
+						)),
+					),
+					shots.length > 0
+						? h("div", { style: { marginTop: 6 } },
+								h("div", { style: styles.muted }, `证据 ${shots.length} 张`),
+								...shots.slice(0, 6).map((shot) =>
+									h("button", {
+										key: shot.id,
+										type: "button",
+										style: styles.engagement,
+										onClick: async () => {
+											const current = boot?.current;
+											if (!current) return;
+											const data = await postApi<{ mime?: string; data?: string }>({ op: "shotData", engagement: current, id: shot.id });
+											if (data.data) setShotView({ mime: data.mime ?? "image/png", data: data.data });
+										},
+									}, shot.label || shot.file),
+								),
+								shotView ? h("img", { src: `data:${shotView.mime};base64,${shotView.data}`, style: { maxWidth: "100%", marginTop: 4 } }) : null,
+							)
+						: null,
 					h("div", { style: styles.row },
+						h("button", {
+							type: "button",
+							disabled: busy,
+							onClick: async () => {
+								const current = boot?.current;
+								if (!current) return;
+								const report = await postApi<{ markdown?: string }>({ op: "report", engagement: current });
+								setReportText(String(report.markdown ?? ""));
+							},
+							style: styles.button,
+						}, "生成报告"),
 						h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
 					),
+					reportText
+						? h("pre", { style: { whiteSpace: "pre-wrap", maxHeight: 160, overflow: "auto", fontSize: 11, marginTop: 6 } }, reportText)
+						: null,
 				),
 	);
 }

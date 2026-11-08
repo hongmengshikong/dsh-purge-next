@@ -92,6 +92,7 @@
 | M6 真机 | ✅ | 3099 实例：client bundle 4269 B（含 dock/slot），`/dsh-purge-next/status` 200，`POST /redteam/api` bootstrap 200 |
 | 版本对齐 | ✅ | package.json 0.2.2-rc.1（与宿主 1:1） |
 | npm pack | ✅ | 62 文件 / 161.9 kB；含 lib、patches、client.js、docs、README；prepare 自动构建 |
+| M6 面板深度 | ✅ | 得分概览表、截图查看（shotData→img）、报告生成（Markdown）；内置点仅允许启用/停用 |
 | M6 整页面板 | ✅ | 清洗/演练台两个标签：补丁状态表、提示词、靶标、资产表、得分；bundle 11140 B |
 | M6 提示词编辑 | ✅ | `/dsh-purge-next/prompt` GET/POST + Dock 文本框；bundle 8556 B |
 | M6 Dock 升级 | ✅ | 显示靶标列表/当前靶标/得分概览，可切换靶标；bundle 6932 B，纯逻辑单测 |
@@ -339,6 +340,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:20 — UI 深度：得分概览表、截图画廊（按需加载 base64）、报告查看；`saveScorePoint` 对内置点只允许启用/停用。bundle 13762 B。98 tests 全绿。
 - 2026-11-08 21:19 — 发布检查：版本改为 0.2.2-rc.1（与宿主 1:1）；`npm pack --dry-run` 62 文件/161.9 kB；隔离实例验证 `/patches` 返回 84 行、client bundle 11211 B 含 `dshp-next-panel`。98 tests 全绿。
 - 2026-11-08 21:18 — M6 整页：`/dsh-purge-next/patches`（84 条逐项状态）+ 面板两标签（补丁表/提示词/靶标/资产/得分）；README 补齐。98 tests 全绿。
 - 2026-11-08 21:16 — M8 真机端到端：隔离宿主（pristine npx 72500… + DSH_HOME `_dsh-copy`）上 apply 93 次写入、status 69 applied / 36 required / 0 drifted、revert 57 文件后整树 sha256 回到基线；期间修复 `hostRevert` 根目录（pi-ai 在 @deepseek-ai 之外）。97 tests 全绿。

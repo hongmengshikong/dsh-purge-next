@@ -291,7 +291,13 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 				if (pointId) {
 					const current = db.prepare("SELECT builtin FROM score_point WHERE id = ?").get(pointId) as { builtin?: number } | undefined;
 					if (!current) return { ok: false, error: "score point not found" };
-					if (Number(current.builtin) === 1) return { ok: false, error: "内置得分点不可修改（只能停用）", builtin: true };
+					if (Number(current.builtin) === 1) {
+						const keys = Object.keys(point).filter((key) => !["id", "enabled"].includes(key));
+						if (keys.length > 0) return { ok: false, error: "内置得分点只能启用/停用", builtin: true };
+						db.prepare("UPDATE score_point SET enabled = COALESCE(?, enabled), updated_at = ? WHERE id = ?")
+							.run(sqlv(point.enabled), new Date().toISOString(), pointId);
+						return { ok: true, id: pointId, builtin: true };
+					}
 					db.prepare(
 						`UPDATE score_point SET name = COALESCE(?, name), category = COALESCE(?, category), points = COALESCE(?, points),
 						   description = COALESCE(?, description), enabled = COALESCE(?, enabled), cap = COALESCE(?, cap), dedup_scope = COALESCE(?, dedup_scope),
