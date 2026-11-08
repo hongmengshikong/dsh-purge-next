@@ -43,6 +43,7 @@ export function loadContext(options: { aiBase?: string | null; dshHome?: string;
 }
 
 export interface StatusPayload {
+	[key: string]: unknown;
 	ok: boolean;
 	ai_base: string | null;
 	dsh_home: string;
@@ -69,6 +70,8 @@ export function statusPayload(ctx: ServiceContext): StatusPayload {
 	if (!ctx.tables) return { ...base, error: "patches_not_loaded" };
 	try {
 		const status: HostStatus = hostStatus(ctx.aiBase, ctx.host, ctx.tables);
+		const rows = patchesPayload(ctx).rows;
+		const counts = status.counts as Record<string, number>;
 		return {
 			...base,
 			ok: true,
@@ -76,6 +79,22 @@ export function statusPayload(ctx: ServiceContext): StatusPayload {
 			required: status.required.length,
 			required_bad: status.requiredBad,
 			drifted: status.drifted,
+			/* 旧版 UI 兼容字段 */
+			ready: true,
+			surface: "web",
+			patches_applied: counts.applied ?? 0,
+			patches_pending: counts.pending ?? 0,
+			patches_skipped: counts.skipped ?? 0,
+			patches_drifted: status.drifted.length,
+			patches_na: counts.na ?? 0,
+			patches_total: rows.length,
+			patch_status: Object.fromEntries(rows.map((row) => [String(row.id), row.status])),
+			patches: rows.map((row) => ({ id: row.id, ids: [row.id], layer: row.layer, status: row.status })),
+			patch_names: Object.fromEntries(rows.map((row) => [String(row.id), row.name])),
+			host_version: ctx.host,
+			plugin_version: "0.2.2-rc.1-full.1",
+			has_backup: true,
+			apply_progress: { active: false, kind: "apply", stage: "idle" },
 		};
 	} catch (error) {
 		return { ...base, error: error instanceof Error ? error.message : String(error) };

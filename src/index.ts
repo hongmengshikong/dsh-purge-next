@@ -2,7 +2,7 @@ import type { PluginCtx } from "./host/types.js";
 import { join } from "node:path";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
 import { applyPayload, loadContext, patchesPayload, readPromptPayload, revertPayload, savePromptPayload, seedPayload, statusPayload, updatePayload } from "./service.js";
-import { installBundledSkills } from "./redteam/skills.js";
+import { installBundledSkills, readSkill, saveSkill, skillCatalog } from "./redteam/skills.js";
 import { readJsonBody } from "./redteam/http.js";
 import { registerRedteamTools } from "./redteam/tools.js";
 import { installRedteamApi } from "./redteam/http.js";
@@ -83,6 +83,99 @@ export function apply(ctx: PluginCtx): void {
 			path: "/dsh-purge-next/patches",
 			handler: (_req, res) => {
 				send(res, 200, patchesPayload(context()));
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/override",
+			handler: async (req, res) => {
+				const request = req as { method?: string };
+				if (request.method === "GET") {
+					const prompt = readPromptPayload(dshHome);
+					send(res, 200, { ok: true, content: prompt.content, defaultContent: prompt.content, hash: prompt.hash });
+					return undefined;
+				}
+				const body = await readJsonBody(req);
+				const saved = savePromptPayload(dshHome, typeof body.content === "string" ? body.content : "");
+				send(res, 200, { ...saved });
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/own-servers",
+			handler: async (req, res) => {
+				const request = req as { method?: string };
+				if (request.method === "GET") {
+					send(res, 200, { ok: true, content: "" });
+					return undefined;
+				}
+				send(res, 200, { ok: true });
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/rules",
+			handler: (_req, res) => {
+				send(res, 200, { ok: true, rules: [] });
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/hooks-deny",
+			handler: async (req, res) => {
+				const request = req as { method?: string };
+				if (request.method === "GET") {
+					send(res, 200, { ok: true, hooksDenyBypass: false });
+					return undefined;
+				}
+				readJsonBody(req).catch(() => ({}));
+				send(res, 200, { ok: true, hooksDenyBypass: false });
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/skills",
+			handler: (_req, res) => {
+				send(res, 200, { ok: true, skills: skillCatalog(join(dshHome, "redteam")).map((item) => item.id), items: skillCatalog(join(dshHome, "redteam")) });
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/skill",
+			handler: async (req, res) => {
+				const request = req as { method?: string };
+				if (request.method === "GET") {
+					const url = new URL(String((req as { url?: string }).url ?? "/"), "http://local");
+					const name = url.searchParams.get("name") ?? "";
+					const hit = readSkill(join(dshHome, "redteam"), name, "redteam");
+					send(res, 200, hit ? { ok: true, ...hit } : { ok: false, error: "skill not found" });
+					return undefined;
+				}
+				const body = await readJsonBody(req);
+				const saved = saveSkill(join(dshHome, "redteam"), String(body.name ?? ""), String(body.content ?? ""), typeof body.description === "string" ? body.description : "");
+				send(res, 200, saved);
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/restart",
+			handler: (_req, res) => {
+				send(res, 200, { ok: false, error: "请手动重启 dsh web（插件不自动重启宿主）" });
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/drill-grant",
+			handler: (_req, res) => {
+				send(res, 200, { ok: true, granted: false });
 				return undefined;
 			},
 		});
