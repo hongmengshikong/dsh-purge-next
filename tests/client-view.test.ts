@@ -29,18 +29,18 @@ describe("update（单通道）", () => {
 		delete process.env.DSH_PURGE_REPO_URL;
 		try {
 			expect(updateStatus()).toMatchObject({ configured: true, channel: "master", repoUrl: "https://github.com/hongmengshikong/dsh-purge-next" });
-			expect(updateTarballUrl()).toBe("https://github.com/hongmengshikong/dsh-purge-next/archive/refs/heads/master.tar.gz");
+			expect(updateTarballUrl()).toBe("https://github.com/hongmengshikong/dsh-purge-next/archive/refs/heads/dist.tar.gz");
 		} finally {
 			if (old !== undefined) process.env.DSH_PURGE_REPO_URL = old;
 		}
 	});
 
-	it("配置后指向 master tarball，且没有 stable/beta 概念", () => {
+	it("配置后指向 dist 构建产物，且没有 stable/beta 概念", () => {
 		const old = process.env.DSH_PURGE_REPO_URL;
 		process.env.DSH_PURGE_REPO_URL = "https://github.com/example/dsh-purge-next.git";
 		try {
 			expect(repoUrl()).toBe("https://github.com/example/dsh-purge-next.git");
-			expect(updateTarballUrl()).toBe("https://github.com/example/dsh-purge-next/archive/refs/heads/master.tar.gz");
+			expect(updateTarballUrl()).toBe("https://github.com/example/dsh-purge-next/archive/refs/heads/dist.tar.gz");
 			expect(updateStatus().channel).toBe("master");
 		} finally {
 			if (old === undefined) delete process.env.DSH_PURGE_REPO_URL;

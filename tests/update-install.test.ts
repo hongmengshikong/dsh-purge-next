@@ -53,7 +53,7 @@ describe("update payload", () => {
 		try {
 			const payload = updatePayload();
 			expect(payload).toMatchObject({ ok: true, configured: true, channel: "master", repo_url: "https://github.com/hongmengshikong/dsh-purge-next" });
-			expect(payload.tarball_url).toContain("/archive/refs/heads/master.tar.gz");
+			expect(payload.tarball_url).toContain("/archive/refs/heads/dist.tar.gz");
 
 			process.env.DSH_PURGE_REPO_URL = "https://github.com/example/fork";
 			const overridden = updatePayload();
