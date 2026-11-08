@@ -18,6 +18,7 @@ import { addScoreHit } from "./store/score-hit.js";
 import { listScoreBoard } from "./store/score-board.js";
 import { seedScorePoints, listStages } from "./store/scoring.js";
 import { SCOPE_SQL } from "./store/schema.js";
+import { listPrompts, resetPrompts, savePrompt } from "./prompts.js";
 
 type SqlValue = string | number | null;
 const sqlv = (value: unknown): SqlValue =>
@@ -276,6 +277,20 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 				);
 				return { ok: true };
 			});
+		}
+
+		if (op === "prompts") return { ok: true, roles: listPrompts(root, id) };
+
+		if (op === "savePrompt") {
+			const role = String(req.role ?? "").trim();
+			const content = typeof req.content === "string" ? req.content : "";
+			const saved = savePrompt(root, id, role, content);
+			return saved.ok ? { ok: true, role: saved.role, path: saved.path } : { ok: false, error: saved.error };
+		}
+
+		if (op === "resetPrompts") {
+			const result = resetPrompts(root, id, typeof req.role === "string" ? req.role : undefined);
+			return { ok: result.ok, reset: result.reset };
 		}
 
 		if (op === "scoreReport") {

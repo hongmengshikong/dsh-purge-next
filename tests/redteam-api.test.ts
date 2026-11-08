@@ -104,6 +104,23 @@ describe("redteam api 分派", () => {
 		expect((dispatch(root, { op: "webshells", engagement: "ev" }).items as { status: string }[])[0]?.status).toBe("offline");
 	});
 
+	it("prompts / savePrompt / resetPrompts", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "pr", scope: [] });
+		const roles = dispatch(root, { op: "prompts", engagement: "pr" }).roles as { role: string; planner: boolean; content: string }[];
+		expect(roles).toHaveLength(6);
+		expect(roles.find((item) => item.role === "plan")?.planner).toBe(true);
+		expect((roles.find((item) => item.role === "recon")?.content ?? "").length).toBeGreaterThan(100);
+
+		expect(dispatch(root, { op: "savePrompt", engagement: "pr", role: "recon", content: "CUSTOM" })).toMatchObject({ ok: true });
+		const after = dispatch(root, { op: "prompts", engagement: "pr" }).roles as { role: string; content: string }[];
+		expect(after.find((item) => item.role === "recon")?.content).toBe("CUSTOM");
+
+		expect(dispatch(root, { op: "resetPrompts", engagement: "pr", role: "recon" })).toMatchObject({ ok: true });
+		const reset = dispatch(root, { op: "prompts", engagement: "pr" }).roles as { role: string; content: string }[];
+		expect((reset.find((item) => item.role === "recon")?.content ?? "").length).toBeGreaterThan(100);
+	});
+
 	it("stages / saveStage", () => {
 		const root = tempRoot();
 		dispatch(root, { op: "openEngagement", name: "s", scope: [] });

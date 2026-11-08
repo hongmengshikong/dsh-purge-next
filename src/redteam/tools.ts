@@ -197,6 +197,38 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "addChainStep", engagement: id, step: { ...args, title } }));
 			},
 		},
+		{
+			name: "redteam_roles",
+			description: "列出演练台的作战角色（role/title/planner）。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				const result = dispatch(root, { op: "prompts", engagement: id }) as { roles?: { role: string; title: string; planner: boolean }[] };
+				return json({ ok: true, roles: (result.roles ?? []).map((role) => ({ role: role.role, title: role.title, planner: role.planner })) });
+			},
+		},
+		{
+			name: "redteam_role_prompt",
+			description: "读取某个角色的提示词正文。",
+			parameters: { engagement: { type: "string" }, role: { type: "string", required: true } },
+			execute(args, exec) {
+				const role = String(args.role ?? "").trim();
+				if (!role) throw new Error("role 必填");
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				const result = dispatch(root, { op: "prompts", engagement: id }) as { roles?: { role: string; content: string }[] };
+				const hit = (result.roles ?? []).find((item) => item.role === role);
+				return json(hit ? { ok: true, role, content: hit.content } : { ok: false, error: `未知角色: ${role}` });
+			},
+		},
+		{
+			name: "redteam_role_prompt_reset",
+			description: "把角色提示词恢复为内置默认（不传 role 则全部恢复）。",
+			parameters: { engagement: { type: "string" }, role: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "resetPrompts", engagement: id, role: args.role }));
+			},
+		},
 	];
 }
 

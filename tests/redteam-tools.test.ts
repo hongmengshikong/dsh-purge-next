@@ -25,6 +25,9 @@ describe("redteam tools", () => {
 			"redteam_credential_add",
 			"redteam_tunnel_list",
 			"redteam_chain_add",
+			"redteam_roles",
+			"redteam_role_prompt",
+			"redteam_role_prompt_reset",
 		]);
 
 		const exec = { sessionId: "s-tools" };
