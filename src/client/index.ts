@@ -87,7 +87,7 @@ const COLOR: Record<string, string> = {
 };
 
 export function Panel(): unknown {
-	const [tab, setTab] = useState<"clean" | "redteam" | "skills">("clean");
+	const [tab, setTab] = useState<"clean" | "redteam" | "skills" | "knowledge" | "env">("clean");
 	const [status, setStatus] = useState<StatusPayload | null>(null);
 	const [boot, setBoot] = useState<BootstrapPayload | null>(null);
 	const [score, setScore] = useState<ScorePayload | null>(null);
@@ -101,6 +101,14 @@ export function Panel(): unknown {
 	const [skills, setSkills] = useState<{ id: string; library: string; description: string; valid: boolean; error: string | null }[]>([]);
 	const [skillName, setSkillName] = useState("");
 	const [skillText, setSkillText] = useState("");
+	const [pocQuery, setPocQuery] = useState("");
+	const [pocItems, setPocItems] = useState<{ code: string; title: string; category?: string; verified?: number }[]>([]);
+	const [pocDetail, setPocDetail] = useState("");
+	const [pocTitle, setPocTitle] = useState("");
+	const [pocCve, setPocCve] = useState("");
+	const [pocBody, setPocBody] = useState("");
+	const [envSummary, setEnvSummary] = useState<Record<string, unknown> | null>(null);
+	const [envDir, setEnvDir] = useState("");
 	const [promptText, setPromptText] = useState("");
 	const [busy, setBusy] = useState(false);
 
@@ -138,6 +146,11 @@ export function Panel(): unknown {
 				setSkills(catalog.items ?? []);
 			} catch {
 				setSkills([]);
+			}
+			try {
+				setEnvSummary(await postApi<Record<string, unknown>>({ op: "platformConfigGet" }));
+			} catch {
+				setEnvSummary(null);
 			}
 		} catch (error) {
 			setStatus({ ok: false, error: error instanceof Error ? error.message : String(error) });
@@ -185,6 +198,8 @@ export function Panel(): unknown {
 			h("span", { role: "button", style: tab === "clean" ? styles.tabOn : styles.tab, onClick: () => setTab("clean") }, "清洗"),
 			h("span", { role: "button", style: tab === "redteam" ? styles.tabOn : styles.tab, onClick: () => setTab("redteam") }, "演练台"),
 			h("span", { role: "button", style: tab === "skills" ? styles.tabOn : styles.tab, onClick: () => setTab("skills") }, "技能库"),
+			h("span", { role: "button", style: tab === "knowledge" ? styles.tabOn : styles.tab, onClick: () => setTab("knowledge") }, "知识库"),
+			h("span", { role: "button", style: tab === "env" ? styles.tabOn : styles.tab, onClick: () => setTab("env") }, "环境适配"),
 		),
 		tab === "clean"
 			? h(
@@ -358,7 +373,125 @@ export function Panel(): unknown {
 							h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
 						),
 					)
-				: null,
+			: tab === "knowledge"
+				? h(
+						"div",
+						null,
+						h("div", { style: styles.row },
+							h("input", {
+								value: pocQuery,
+								onChange: (event: { target: { value: string } }) => setPocQuery(event.target.value),
+								placeholder: "CVE / 组件 / 关键字",
+								style: { flex: 1, fontSize: 11 },
+							}),
+							h("button", {
+								type: "button",
+								style: styles.button,
+								onClick: async () => {
+									const found = await postApi<{ items?: { code: string; title: string; category?: string; verified?: number }[] }>({ op: "pocSearch", q: pocQuery });
+									setPocItems(found.items ?? []);
+								},
+							}, "搜索"),
+						),
+						h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, margin: "4px 0" } },
+							...pocItems.map((item) =>
+								h("button", {
+									key: item.code,
+									type: "button",
+									style: styles.engagement,
+									onClick: async () => {
+										const hit = await postApi<{ content?: string; title?: string; code?: string }>({ op: "pocGet", code: item.code });
+										setPocDetail(String(hit.content ?? ""));
+										setPocTitle(String(hit.title ?? item.title));
+										setPocBody(String(hit.content ?? ""));
+									},
+								}, (item.verified ? "✓ " : "") + item.title),
+							),
+						),
+						pocDetail ? h("pre", { style: { whiteSpace: "pre-wrap", maxHeight: 140, overflow: "auto", fontSize: 11 } }, pocDetail) : null,
+						h("input", { value: pocTitle, onChange: (event: { target: { value: string } }) => setPocTitle(event.target.value), placeholder: "标题（回填/保存）", style: { width: "100%", marginTop: 4, fontSize: 11 } }),
+						h("input", { value: pocCve, onChange: (event: { target: { value: string } }) => setPocCve(event.target.value), placeholder: "CVE（可选）", style: { width: "100%", marginTop: 4, fontSize: 11 } }),
+						h("textarea", {
+							value: pocBody,
+							onChange: (event: { target: { value: string } }) => setPocBody(event.target.value),
+							placeholder: "POC/EXP 正文",
+							style: { width: "100%", height: 90, fontSize: 11, marginTop: 4, fontFamily: "monospace" },
+						}),
+						h("div", { style: styles.row },
+							h("button", {
+								type: "button",
+								disabled: busy || !pocTitle.trim(),
+								onClick: async () => {
+									setBusy(true);
+									try {
+										await postApi({ op: "pocSave", poc: { title: pocTitle, cve: pocCve, content: pocBody, verified: true, source: "self" } });
+										const found = await postApi<{ items?: { code: string; title: string; category?: string; verified?: number }[] }>({ op: "pocSearch", q: pocQuery });
+										setPocItems(found.items ?? []);
+									} finally {
+										setBusy(false);
+									}
+								},
+								style: styles.button,
+							}, "保存到知识库"),
+							h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
+						),
+					)
+				: tab === "env"
+					? h(
+							"div",
+							null,
+							h("div", { style: styles.muted }, "环境适配 · " + String(((envSummary?.adapt as Record<string, unknown>)?.reason) ?? "未知")),
+							h("div", { style: styles.muted }, String(((envSummary?.adapt as Record<string, unknown>)?.message) ?? "")),
+							h("div", { style: styles.muted }, "工具 " + String(((envSummary?.tools as Record<string, unknown>)?.found) ?? 0) + "/" + String(((envSummary?.tools as Record<string, unknown>)?.total) ?? 0) + " · 模板 " + String((envSummary?.nucleiTemplatesDir as string) ?? "未配置")),
+							h("div", { style: styles.row },
+								h("input", {
+									value: envDir,
+									onChange: (event: { target: { value: string } }) => setEnvDir(event.target.value),
+									placeholder: "工具整包目录（自动分配）",
+									style: { flex: 1, fontSize: 11 },
+								}),
+								h("button", {
+									type: "button",
+									disabled: busy || !envDir.trim(),
+									onClick: async () => {
+										setBusy(true);
+										try {
+											await postApi({ op: "platformAssignToolkit", dir: envDir });
+											await load();
+										} finally {
+											setBusy(false);
+										}
+									},
+									style: styles.button,
+								}, "分配"),
+							),
+							h("table", { style: styles.table },
+								h("tbody", null, ...(((envSummary?.tools as { items?: { id: string; path: string | null }[] })?.items) ?? []).map((tool) =>
+									h("tr", { key: tool.id },
+										h("td", { style: styles.cell }, tool.id),
+										h("td", { style: { ...styles.cell, color: tool.path ? "#166534" : "#b91c1c" } }, tool.path ? "✓" : "缺失"),
+									),
+								)),
+							),
+							h("div", { style: styles.row },
+								h("button", {
+									type: "button",
+									disabled: busy,
+									onClick: async () => {
+										setBusy(true);
+										try {
+											await postApi({ op: "platformConfigSave", config: { envAdaptSkip: true } });
+											await load();
+										} finally {
+											setBusy(false);
+										}
+									},
+									style: styles.button,
+								}, "暂不配置"),
+								h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
+							),
+						)
+					: null,
 	);
 }
 
