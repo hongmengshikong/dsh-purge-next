@@ -7,12 +7,13 @@
 import type { PluginCtx } from "../host/types.js";
 import { dispatch, redteamRoot } from "./api.js";
 import { findDshHome } from "../engine/host-discovery.js";
+import { bindEngagement, bindingViewOf, boundEngagement, resolveEngagement, type ExecLike } from "./session.js";
 
 export interface ToolSpec {
 	name: string;
 	description: string;
 	parameters: Record<string, unknown>;
-	execute(args: Record<string, unknown>): Promise<string> | string;
+	execute(args: Record<string, unknown>, exec?: ExecLike): Promise<string> | string;
 }
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2);
@@ -29,15 +30,16 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				target: { type: "string", required: true, description: "靶标单位名称" },
 				scope: { type: "array", items: { type: "string" }, description: "授权范围 CIDR 列表（可选）" },
 			},
-			execute(args) {
+			execute(args, exec) {
 				const name = String(args.target ?? "").trim();
 				if (!name) throw new Error("target 必填");
 				const scope = Array.isArray(args.scope) ? (args.scope as string[]) : [];
 				const opened = dispatch(root, { op: "openEngagement", name, scope });
 				if (!opened.ok) return json(opened);
 				const id = (opened.engagement as { id: string }).id;
+				bindEngagement(exec, id);
 				const stats = dispatch(root, { op: "stats", engagement: id });
-				return json({ ...opened, stats });
+				return json({ ...opened, stats, session: bindingViewOf(exec) });
 			},
 		},
 		{
@@ -54,7 +56,7 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				names: { type: "array", items: { type: "object" } },
 				ports: { type: "array", items: { type: "object" } },
 			},
-			execute(args) {
+			execute(args, exec) {
 				const ip = String(args.ip ?? "").trim();
 				if (!ip) throw new Error("ip 必填");
 				if (args.provenance !== "passive" && args.provenance !== "active") throw new Error("provenance 必须是 passive|active");
@@ -67,7 +69,8 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 					names: args.names,
 					ports: args.ports,
 				};
-				return json(dispatch(root, { op: "ingest", engagement: typeof args.engagement === "string" ? args.engagement : undefined, bundle: { assets: [asset] } }));
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "ingest", engagement: id, bundle: { assets: [asset] } }));
 			},
 		},
 		{
@@ -80,17 +83,39 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				sort: { type: "string", enum: ["priority", "todo", "ports", "ip", "discovered"] },
 				limit: { type: "number", description: "默认 50，最大 200" },
 			},
-			execute(args) {
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
 				return json(
 					dispatch(root, {
 						op: "assets",
-						engagement: typeof args.engagement === "string" ? args.engagement : undefined,
+						engagement: id,
 						cidr: typeof args.cidr === "string" ? args.cidr : undefined,
 						state: typeof args.state === "string" ? args.state : undefined,
 						sort: typeof args.sort === "string" ? args.sort : "ip",
 						limit: Math.min(Number(args.limit) || 50, 200),
 					}),
 				);
+			},
+		},
+		{
+			name: "redteam_session_bind",
+			description: "把当前会话绑定到指定靶标（不影响其它会话）。",
+			parameters: {
+				engagement: { type: "string", required: true, description: "靶标 id" },
+			},
+			execute(args, exec) {
+				const id = String(args.engagement ?? "").trim();
+				if (!id) throw new Error("engagement 必填");
+				bindEngagement(exec, id);
+				return json({ ok: true, session: bindingViewOf(exec) });
+			},
+		},
+		{
+			name: "redteam_session_info",
+			description: "查看当前会话绑定的靶标。",
+			parameters: {},
+			execute(_args, exec) {
+				return json({ ok: true, session: bindingViewOf(exec) });
 			},
 		},
 	];
@@ -103,7 +128,7 @@ export function registerRedteamTools(ctx: PluginCtx, dshHome?: string): void {
 			name: tool.name,
 			description: tool.description,
 			input: tool.parameters,
-			execute: (args: Record<string, unknown>) => tool.execute(args),
+			execute: (args: Record<string, unknown>, exec?: unknown) => tool.execute(args, exec as ExecLike),
 		});
 	}
 }

@@ -2,6 +2,7 @@ import type { PluginCtx } from "./host/types.js";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
 import { applyPayload, loadContext, revertPayload, seedPayload, statusPayload } from "./service.js";
 import { registerRedteamTools } from "./redteam/tools.js";
+import { installRedteamApi } from "./redteam/http.js";
 
 /**
  * 主插件入口。
@@ -41,6 +42,7 @@ export function apply(ctx: PluginCtx): void {
 	const context = () => loadContext({ aiBase: findAiBase(), dshHome: findDshHome() });
 
 	const registerRoutes = (server: RouteRegistrar): void => {
+		installRedteamApi(server, dshHome);
 		server.register({
 			kind: "exact",
 			path: "/dsh-purge-next/status",

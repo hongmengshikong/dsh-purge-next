@@ -14,9 +14,16 @@ describe("redteam tools", () => {
 		const home = mkdtempSync(join(tmpdir(), "dsh-purge-tools-"));
 		dirs.push(home);
 		const tools = new Map(buildTools(home).map((tool) => [tool.name, tool]));
-		expect([...tools.keys()]).toEqual(["redteam_engagement_open", "redteam_asset_add", "redteam_asset_query"]);
+		expect([...tools.keys()]).toEqual([
+			"redteam_engagement_open",
+			"redteam_asset_add",
+			"redteam_asset_query",
+			"redteam_session_bind",
+			"redteam_session_info",
+		]);
 
-		const opened = JSON.parse(await tools.get("redteam_engagement_open")?.execute({ target: "示例单位", scope: ["10.0.0.0/24"] }) as string) as {
+		const exec = { sessionId: "s-tools" };
+		const opened = JSON.parse(await tools.get("redteam_engagement_open")?.execute({ target: "示例单位", scope: ["10.0.0.0/24"] }, exec) as string) as {
 			ok: boolean;
 			engagement: { id: string };
 			stats: { stats: { assets: number } };
@@ -24,6 +31,7 @@ describe("redteam tools", () => {
 		expect(opened.ok).toBe(true);
 		expect(opened.engagement.id).toBe("示例单位");
 		expect(opened.stats.stats.assets).toBe(0);
+		expect(opened.session).toMatchObject({ session: "s-tools", engagement: "示例单位" });
 
 		const added = JSON.parse(
 			await tools.get("redteam_asset_add")?.execute({

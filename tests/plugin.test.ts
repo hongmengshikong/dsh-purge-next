@@ -66,6 +66,7 @@ describe.skipIf(!HAS_FIXTURE)("plugin 入口", () => {
 			pluginApply(fakeCtx(routes));
 			expect(pluginName).toBe("dsh-purge-next");
 			expect(routes.map((route) => route.path)).toEqual([
+				"/redteam/api",
 				"/dsh-purge-next/status",
 				"/dsh-purge-next/apply",
 				"/dsh-purge-next/revert",
@@ -73,16 +74,17 @@ describe.skipIf(!HAS_FIXTURE)("plugin 入口", () => {
 			expect(existsSync(join(home, "prompt-inject.md"))).toBe(true);
 			expect(readFileSync(join(home, "prompt-inject.md"), "utf8").length).toBeGreaterThan(1000);
 
+			const byPath = (path: string) => routes.find((route) => route.path === path);
 			const status = capture();
-			routes[0]?.handler({}, status.res);
+			byPath("/dsh-purge-next/status")?.handler({}, status.res);
 			expect(status.body()).toMatchObject({ ok: true, required: 36, required_bad: [], drifted: [] });
 
 			const applied = capture();
-			routes[1]?.handler({}, applied.res);
+			byPath("/dsh-purge-next/apply")?.handler({}, applied.res);
 			expect(applied.body()).toMatchObject({ ok: true, required_bad: 0 });
 
 			const reverted = capture();
-			routes[2]?.handler({}, reverted.res);
+			byPath("/dsh-purge-next/revert")?.handler({}, reverted.res);
 			expect(reverted.body()).toMatchObject({ ok: true });
 		} finally {
 			delete process.env.DSH_HOME;
