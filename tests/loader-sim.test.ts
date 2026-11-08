@@ -62,8 +62,24 @@ describe("client bundle（__ModuleLoader__ 包装）", () => {
 		expect(typeof exportsObj.apply).toBe("function");
 		expect(Array.isArray(exportsObj.inject)).toBe(true);
 		expect(exportsObj.name).toBe("dsh-purge-next");
-		expect(typeof exportsObj.Panel).toBe("function");
-		expect(() => (exportsObj.apply as (ctx: unknown) => void)({})).not.toThrow();
+		expect(typeof exportsObj.Dock).toBe("function");
+		let slotName = "";
+		let registered: Record<string, unknown> | null = null;
+		const ctx = {
+			slots: {
+				inject: (name: string, cb: () => unknown) => {
+					slotName = name;
+					cb();
+				},
+				register: (spec: Record<string, unknown>) => {
+					registered = spec;
+					return () => undefined;
+				},
+			},
+		};
+		expect(() => (exportsObj.apply as (ctx: unknown) => void)(ctx)).not.toThrow();
+		expect(slotName).toBe("shell.overlay");
+		expect(registered).toMatchObject({ id: "dsh-purge-next-dock" });
 		expect(bytes).toBeGreaterThan(500);
 	});
 });
