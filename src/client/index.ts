@@ -2,6 +2,7 @@
  * 浏览器端入口：浮层面板（清洗 / 演练台两个标签页）。
  */
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
+import { DockShell } from "./ui.js";
 import {
 	engagementLabel,
 	formatBootstrap,
@@ -287,39 +288,20 @@ export function Panel(): unknown {
 	const engagements = boot?.engagements ?? [];
 	const shownPatches = patches.filter((row) => row.status !== "na");
 
-	return h(
-		"div",
-		{ className: "dshp-next-panel", "data-dsh-purge-next": "dock", style: { ...styles.box, left: pos.x, top: pos.y, visibility: pos.x < 0 ? "hidden" : "visible" } },
-		h("div", {
-			style: styles.header,
-			onPointerDown: startDrag,
-			onPointerMove: moveDrag,
-			onPointerUp: endDrag,
-			onPointerCancel: endDrag,
-		},
-			h("span", { style: styles.grip }, "⠿"),
-			h("strong", { style: styles.brand }, "dsh-purge-next"),
-			h("div", { style: styles.tabs, onPointerDown: (event: { stopPropagation: () => void }) => event.stopPropagation() },
-				h("span", { role: "button", style: tab === "clean" ? styles.tabOn : styles.tab, onClick: () => setTab("clean") }, "清洗"),
-				h("span", { role: "button", style: tab === "redteam" ? styles.tabOn : styles.tab, onClick: () => setTab("redteam") }, "演练台"),
-				h("span", { role: "button", style: tab === "skills" ? styles.tabOn : styles.tab, onClick: () => setTab("skills") }, "技能库"),
-				h("span", { role: "button", style: tab === "knowledge" ? styles.tabOn : styles.tab, onClick: () => setTab("knowledge") }, "知识库"),
-				h("span", { role: "button", style: tab === "env" ? styles.tabOn : styles.tab, onClick: () => setTab("env") }, "环境适配"),
-			),
-			h("button", {
-				type: "button",
-				style: styles.iconBtn,
-				title: "回到右下角",
-				onClick: () => setPos(defaultPos()),
-			}, "⟲"),
-			h("button", {
-				type: "button",
-				style: styles.iconBtn,
-				title: collapsed ? "展开" : "收起",
-				onClick: () => setCollapsed(!collapsed),
-			}, collapsed ? "▢" : "—"),
-		),
-		collapsed ? null : h("div", { style: styles.body },
+	return h(DockShell, {
+		title: "dsh-purge-next",
+		tabs: [
+			{ id: "clean", label: "清洗" },
+			{ id: "redteam", label: "演练台" },
+			{ id: "skills", label: "技能库" },
+			{ id: "knowledge", label: "知识库" },
+			{ id: "env", label: "环境适配" },
+		],
+		active: tab,
+		onTab: (id: string) => setTab(id as typeof tab),
+		storageKey: "dshp-next-geom",
+	},
+		h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
 			tab === "clean"
 			? h(
 					"div",

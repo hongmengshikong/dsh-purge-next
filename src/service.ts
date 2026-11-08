@@ -1,7 +1,7 @@
 /**
  * 插件服务层：把引擎能力整理成可被 HTTP / 工具复用的纯函数。
  */
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hostApply, hostRevert, hostStatus, SUPPORTED_HOSTS, type HostApplyResult, type HostStatus } from "./engine/host.js";
@@ -231,4 +231,29 @@ export function patchesPayload(ctx: ServiceContext): PatchesPayload {
 	} catch (error) {
 		return { ok: false, rows: [], error: error instanceof Error ? error.message : String(error) };
 	}
+}
+
+export interface DrillGrant {
+	granted: boolean;
+	at: string | null;
+}
+
+function drillGrantPath(dshHome: string): string {
+	return join(dshHome, "redteam", "drill-grant.json");
+}
+
+export function readDrillGrant(dshHome: string): DrillGrant {
+	try {
+		const raw = JSON.parse(readFileSync(drillGrantPath(dshHome), "utf8")) as Partial<DrillGrant>;
+		return { granted: Boolean(raw.granted), at: typeof raw.at === "string" ? raw.at : null };
+	} catch {
+		return { granted: false, at: null };
+	}
+}
+
+export function saveDrillGrant(dshHome: string, granted: boolean): DrillGrant {
+	const next: DrillGrant = { granted, at: granted ? new Date().toISOString() : null };
+	mkdirSync(join(dshHome, "redteam"), { recursive: true });
+	writeFileSync(drillGrantPath(dshHome), JSON.stringify(next, null, 2) + "\n", "utf8");
+	return next;
 }

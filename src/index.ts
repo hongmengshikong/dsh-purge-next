@@ -1,7 +1,7 @@
 import type { PluginCtx } from "./host/types.js";
 import { join } from "node:path";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
-import { applyPayload, loadContext, patchesPayload, readPromptPayload, revertPayload, savePromptPayload, seedPayload, statusPayload, updatePayload } from "./service.js";
+import { applyPayload, loadContext, patchesPayload, readDrillGrant, readPromptPayload, revertPayload, saveDrillGrant, savePromptPayload, seedPayload, statusPayload, updatePayload } from "./service.js";
 import { installBundledSkills, readSkill, saveSkill, skillCatalog } from "./redteam/skills.js";
 import { readJsonBody } from "./redteam/http.js";
 import { registerRedteamTools } from "./redteam/tools.js";
@@ -174,8 +174,20 @@ export function apply(ctx: PluginCtx): void {
 		server.register({
 			kind: "exact",
 			path: "/dsh-purge-next/drill-grant",
-			handler: (_req, res) => {
-				send(res, 200, { ok: true, granted: false });
+			handler: async (req, res) => {
+				const request = req as { method?: string };
+				if (request.method === "GET") {
+					send(res, 200, { ok: true, ...readDrillGrant(dshHome) });
+					return undefined;
+				}
+				let granted = true;
+				try {
+					const body = await readJsonBody(req);
+					if (typeof body.granted === "boolean") granted = body.granted;
+				} catch {
+					/* 空 body 视为授权 */
+				}
+				send(res, 200, { ok: true, ...saveDrillGrant(dshHome, granted) });
 				return undefined;
 			},
 		});
