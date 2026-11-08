@@ -23,3 +23,5 @@ export * from "./ingest.js";
 
 export * from "./scoring.js";
 export * from "./score-data.js";
+
+export * from "./score-hit.js";
