@@ -1,0 +1,144 @@
+/**
+ * 插件服务层：把引擎能力整理成可被 HTTP / 工具复用的纯函数。
+ */
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { hostApply, hostRevert, hostStatus, SUPPORTED_HOSTS, type HostApplyResult, type HostStatus } from "./engine/host.js";
+import { loadPatchTables } from "./engine/load.js";
+import { findAiBase, findDshHome } from "./engine/host-discovery.js";
+import { seedPromptInjectAtBoot } from "./prompt/inject.js";
+import type { PatchTables } from "./engine/types.js";
+
+export interface ServiceContext {
+	aiBase: string | null;
+	dshHome: string;
+	host: string;
+	tables: PatchTables | null;
+}
+
+export function defaultHost(): string {
+	const env = process.env.DSH_PURGE_HOST;
+	if (env && SUPPORTED_HOSTS.includes(env)) return env;
+	return SUPPORTED_HOSTS[0] ?? "0.2.2-rc.1";
+}
+
+/** lib/service.js → 包根（patches/ 在包根下） */
+const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+export function loadContext(options: { aiBase?: string | null; dshHome?: string; tables?: PatchTables | null } = {}): ServiceContext {
+	const aiBase = options.aiBase !== undefined ? options.aiBase : findAiBase();
+	const dshHome = options.dshHome ?? findDshHome();
+	const host = defaultHost();
+	let tables: PatchTables | null = options.tables ?? null;
+	if (tables === null) {
+		try {
+			tables = loadPatchTables(join(PACKAGE_ROOT, "patches"));
+		} catch {
+			tables = null;
+		}
+	}
+	return { aiBase, dshHome, host, tables };
+}
+
+export interface StatusPayload {
+	ok: boolean;
+	ai_base: string | null;
+	dsh_home: string;
+	host: string;
+	counts: Record<string, number>;
+	required: number;
+	required_bad: { id: number; name: string; status: string }[];
+	drifted: { id: number; name: string }[];
+	error?: string;
+}
+
+export function statusPayload(ctx: ServiceContext): StatusPayload {
+	const base: StatusPayload = {
+		ok: false,
+		ai_base: ctx.aiBase,
+		dsh_home: ctx.dshHome,
+		host: ctx.host,
+		counts: {},
+		required: 0,
+		required_bad: [],
+		drifted: [],
+	};
+	if (!ctx.aiBase || !existsSync(ctx.aiBase)) return { ...base, error: "ai_base_not_found" };
+	if (!ctx.tables) return { ...base, error: "patches_not_loaded" };
+	try {
+		const status: HostStatus = hostStatus(ctx.aiBase, ctx.host, ctx.tables);
+		return {
+			...base,
+			ok: true,
+			counts: status.counts,
+			required: status.required.length,
+			required_bad: status.requiredBad,
+			drifted: status.drifted,
+		};
+	} catch (error) {
+		return { ...base, error: error instanceof Error ? error.message : String(error) };
+	}
+}
+
+export interface ApplyPayload {
+	ok: boolean;
+	applied: number;
+	drifted: number;
+	changed_files: number;
+	required: number;
+	required_bad: number;
+	error?: string;
+}
+
+export function applyPayload(ctx: ServiceContext): ApplyPayload {
+	const empty: ApplyPayload = { ok: false, applied: 0, drifted: 0, changed_files: 0, required: 0, required_bad: 0 };
+	if (!ctx.aiBase || !existsSync(ctx.aiBase)) return { ...empty, error: "ai_base_not_found" };
+	if (!ctx.tables) return { ...empty, error: "patches_not_loaded" };
+	try {
+		const result: HostApplyResult = hostApply(ctx.aiBase, ctx.host, ctx.tables);
+		const after = hostStatus(ctx.aiBase, ctx.host, ctx.tables);
+		return {
+			ok: result.drifted === 0 && after.requiredBad.length === 0,
+			applied: result.applied,
+			drifted: result.drifted,
+			changed_files: result.changedFiles.length,
+			required: after.required.length,
+			required_bad: after.requiredBad.length,
+		};
+	} catch (error) {
+		return { ...empty, error: error instanceof Error ? error.message : String(error) };
+	}
+}
+
+export interface RevertPayload {
+	ok: boolean;
+	reverted: number;
+	error?: string;
+}
+
+export function revertPayload(ctx: ServiceContext): RevertPayload {
+	if (!ctx.aiBase || !existsSync(ctx.aiBase)) return { ok: false, reverted: 0, error: "ai_base_not_found" };
+	try {
+		const result = hostRevert(ctx.aiBase);
+		return { ok: true, reverted: result.reverted };
+	} catch (error) {
+		return { ok: false, reverted: 0, error: error instanceof Error ? error.message : String(error) };
+	}
+}
+
+export interface SeedPayload {
+	ok: boolean;
+	action: string;
+	path: string;
+	error?: string;
+}
+
+export function seedPayload(dshHome: string): SeedPayload {
+	try {
+		const result = seedPromptInjectAtBoot(dshHome);
+		return { ok: result.action !== "error", action: result.action, path: result.path };
+	} catch (error) {
+		return { ok: false, action: "error", path: "", error: error instanceof Error ? error.message : String(error) };
+	}
+}
