@@ -65,6 +65,15 @@ dsh plugin --profile web add --ignore-scripts .\dsh-purge-next-0.2.2-rc.1.tgz
 - 未迁移：POC 知识库（旧版已下架）、平台配置、模板检索、`unknown_*`、`agent_slot`、`evidence_upgrade/verify`
 - 更新源 URL 待仓库上传后填写（`DSH_PURGE_REPO_URL` 或 `src/update/check.ts` 的 `DEFAULT_REPO_URL`）
 
+## 上传后三步
+
+```powershell
+node src/tools/set-repo-url.ts https://github.com/<owner>/dsh-purge-next
+npm run verify
+git add -A; git commit; git tag -d v0.2.2-rc.1; git tag -a v0.2.2-rc.1 -m "dsh-purge-next 0.2.2-rc.1"
+git remote add origin <repo>; git push -u origin master; git push origin v0.2.2-rc.1
+```
+
 ## 升级路径（宿主升版时）
 
 1. `npm run fixture:fetch -- --host <新版本>`（旧仓库先 snapshot）

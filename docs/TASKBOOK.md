@@ -317,6 +317,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 | 设置页/演练台整页 UI | ✅ | 面板两标签（清洗/演练台/得分/截图/报告） |
 | 一键验证链 | ✅ | `npm run verify`（typecheck→build→test→gate→audit） |
 | 发布说明 | ✅ | `docs/RELEASE.md` |
+| 更新源 URL | ⏳ | 仓库未上传；上传后 `node src/tools/set-repo-url.ts <repo>` 一步填好 |
 | tarball 安装 | ✅ | `npm pack` → 解包进隔离 profile → status 200 / patches 84；首次补 insert，二次幂等 |
 
 ## 10. 风险与已知坑
@@ -343,6 +344,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:29 — 最终验证：`npm run verify` 全绿（98 tests / gate 36-0-0 / audit 53-63）；新增 `src/tools/set-repo-url.ts`（上传后一条命令填更新源并打印发布步骤）。唯一未完成项：仓库 URL。
 - 2026-11-08 21:27 — 安装链路：`npm pack`（161.9 KB/64 文件）解包进隔离 profile 后启动，status 200、patches 84；`ensureProfileBundle` 首次补 insert（insertChanged=true），第二次调用两项均 false。
 - 2026-11-08 21:25 — 发布准备：`docs/RELEASE.md`、`npm run verify` 一键链（typecheck/build/test/gate/audit）全绿；§9.3 只剩更新源 URL 待上传。
 - 2026-11-08 21:23 — 旧名兼容：attack_chain/attack_path（→attackGraph）、preflight、session_check、unverified_count、evidence_list/record（→shots/shotAdd）；新增 preflight/unverifiedCount op。工具 53/64、op 63/72；98 tests 全绿。
