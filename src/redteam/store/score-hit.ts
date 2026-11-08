@@ -81,14 +81,6 @@ export function scoreMultiplierOf(hit: ScoreHitInput): { multiplier: number; rea
 	return { multiplier, reasons };
 }
 
-export function hitPointsOf(hit: { points?: unknown; multiplier?: unknown; code?: string | null }, metaByCode?: Map<string, { points?: number }>): number {
-	let base = 0;
-	if (hit.points !== null && hit.points !== undefined && hit.points !== "") base = Number(hit.points) || 0;
-	else if (hit.code && metaByCode) base = Number(metaByCode.get(String(hit.code))?.points ?? 0) || 0;
-	const mult = Number(hit.multiplier);
-	return Math.round(base * (Number.isFinite(mult) && mult > 0 ? mult : 1));
-}
-
 function servicePortOf(db: SqlDb, hit: ScoreHitInput): number | null {
 	const explicit = normalizePort(hit.port);
 	if (explicit !== null) return explicit;

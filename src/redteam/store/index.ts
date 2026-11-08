@@ -25,3 +25,5 @@ export * from "./scoring.js";
 export * from "./score-data.js";
 
 export * from "./score-hit.js";
+
+export * from "./score-caps.js";
