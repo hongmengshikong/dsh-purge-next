@@ -75,7 +75,8 @@
 | M2 阶段/得分点播种 | ✅ | 5 阶段 + 25 得分点；与旧实现 dump 完全一致 |
 | M2 记分写入 | ✅ | `addScoreHit`（得分点解析/evidence/points 边界/端口/G5G6 倍率）；score_hit 行与旧实现一致 |
 | M2 封顶评估 | ✅ | `applyScoreCaps` / `evaluateScoreBoard`（service/system/target/none + rule cap）；与旧实现逐字段一致 |
-| M2 看板/报告 | ⬜ | 下一项：listScorePoints 汇总、scoreReport、scoreChain |
+| M2 看板 | ✅ | `listScoreBoard`：items/hits/summary/latestCapped 与旧 `listScorePoints` 一致 |
+| M2 看板附加 | ⬜ | 证据截图挂载、ruleGroups 分组、scoreReport/scoreChain |
 
 ---
 
@@ -259,6 +260,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 20:40 — M2 看板：`score-board.ts` 移植 `listScorePoints` 的 items/hits/summary/latestCapped；与旧实现对照 summary 全字段、25 个得分点的 counted/earned/self_created/capped 完全一致。截图挂载与 ruleGroups 留待后续。53 tests 全绿。
 - 2026-11-08 20:38 — M2 封顶：`score-caps.ts` 移植 applyScoreCaps/evaluateScoreBoard/loadScoreMeta/loadAssetNames/scoreCapReasonText/parseRowCount；与旧 score-rules 在同一组合成数据上 capped/items/caps 完全一致。46 tests 全绿。
 - 2026-11-08 20:37 — M2 记分写入：`score-hit.ts`（servicePortOf/targetHasIpv6Host/scoreMultiplierOf/hitPointsOf/addScoreHit），score_hit 行与旧 `addScoreHit` 完全一致；封顶评估与看板留待下一轮。41 tests 全绿。
 - 2026-11-08 20:35 — M2 评分配置：`score-data.ts` 由旧仓库生成（5 阶段 / 25 得分点），`scoring.ts` 移植 seedStages/seedScorePoints（同步内置元数据、保留启用状态）；`openEngagement` 自动播种；parity 测试 stage/score_point 两张表 dump 与旧实现完全一致。35 tests 全绿。
