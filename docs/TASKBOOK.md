@@ -251,7 +251,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 | D5 | 补丁语料原样复制 | 版本知识不可重写 |
 | D6 | 版本与宿主 1:1 | 防跨版本 pattern 污染 |
 | D7 | **取消正式版/测试版双通道** | 用户无此需求；只保留 `master` 一条线，删除 `channel.json`/`beta` ref |
-| D8 | **更新源指向本仓库** | URL 待上传后填入 `src/update/` 配置；在此之前更新检查返回“未配置” |
+| D8 | **更新源指向本仓库** | 已填：`https://github.com/hongmengshikong/dsh-purge-next`（单通道 master） |
 
 ---
 
@@ -317,7 +317,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 | 设置页/演练台整页 UI | ✅ | 面板两标签（清洗/演练台/得分/截图/报告） |
 | 一键验证链 | ✅ | `npm run verify`（typecheck→build→test→gate→audit） |
 | 发布说明 | ✅ | `docs/RELEASE.md` |
-| 更新源 URL | ⏳ | 仓库未上传；上传后 `node src/tools/set-repo-url.ts <repo>` 一步填好 |
+| 更新源 URL | ✅ | `DEFAULT_REPO_URL = https://github.com/hongmengshikong/dsh-purge-next`（`/update` 返回 master tarball） |
 | tarball 安装 | ✅ | `npm pack` → 解包进隔离 profile → status 200 / patches 84；首次补 insert，二次幂等 |
 
 ## 10. 风险与已知坑
@@ -344,6 +344,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:28 — 仓库地址已定：`https://github.com/hongmengshikong/dsh-purge-next.git`；`DEFAULT_REPO_URL` 填好，`/update` 返回 master tarball；测试改为「默认已配置 + env 覆盖」。
 - 2026-11-08 21:29 — 最终验证：`npm run verify` 全绿（98 tests / gate 36-0-0 / audit 53-63）；新增 `src/tools/set-repo-url.ts`（上传后一条命令填更新源并打印发布步骤）。唯一未完成项：仓库 URL。
 - 2026-11-08 21:27 — 安装链路：`npm pack`（161.9 KB/64 文件）解包进隔离 profile 后启动，status 200、patches 84；`ensureProfileBundle` 首次补 insert（insertChanged=true），第二次调用两项均 false。
 - 2026-11-08 21:25 — 发布准备：`docs/RELEASE.md`、`npm run verify` 一键链（typecheck/build/test/gate/audit）全绿；§9.3 只剩更新源 URL 待上传。

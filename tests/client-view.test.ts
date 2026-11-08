@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { engagementLabel, formatBootstrap, formatScore, formatStatus } from "../src/client/view-model.js";
-import { describeUpdate, repoUrl, updateStatus, updateTarballUrl } from "../src/update/check.js";
+import { describeUpdate, repoUrl, updateStatus, updateStatusFor, updateTarballFor, updateTarballUrl } from "../src/update/check.js";
 
 describe("client view-model", () => {
 	it("status / bootstrap / score 文案", () => {
@@ -18,13 +18,18 @@ describe("client view-model", () => {
 });
 
 describe("update（单通道）", () => {
-	it("未配置仓库时返回 unconfigured，且不生成 tarball URL", () => {
+	it("空 URL 返回 unconfigured，且不生成 tarball URL", () => {
+		expect(updateStatusFor("")).toMatchObject({ configured: false, channel: "master", reason: "repo_not_configured" });
+		expect(updateTarballFor("")).toBeNull();
+		expect(describeUpdate(updateStatusFor(""))).toContain("未配置");
+	});
+
+	it("默认更新源指向本仓库（无 env 时）", () => {
 		const old = process.env.DSH_PURGE_REPO_URL;
 		delete process.env.DSH_PURGE_REPO_URL;
 		try {
-			expect(updateStatus()).toMatchObject({ configured: false, channel: "master", reason: "repo_not_configured" });
-			expect(updateTarballUrl()).toBeNull();
-			expect(describeUpdate()).toContain("未配置");
+			expect(updateStatus()).toMatchObject({ configured: true, channel: "master", repoUrl: "https://github.com/hongmengshikong/dsh-purge-next" });
+			expect(updateTarballUrl()).toBe("https://github.com/hongmengshikong/dsh-purge-next/archive/refs/heads/master.tar.gz");
 		} finally {
 			if (old !== undefined) process.env.DSH_PURGE_REPO_URL = old;
 		}

@@ -7,7 +7,7 @@
 export const UPDATE_BRANCH = "master";
 
 /** 仓库地址：上传后填这里（或设置 DSH_PURGE_REPO_URL）。 */
-export const DEFAULT_REPO_URL = "";
+export const DEFAULT_REPO_URL = "https://github.com/hongmengshikong/dsh-purge-next";
 
 export interface UpdateStatus {
 	configured: boolean;
@@ -21,10 +21,13 @@ export function repoUrl(): string {
 	return (env && env.trim()) || DEFAULT_REPO_URL;
 }
 
-export function updateStatus(): UpdateStatus {
-	const url = repoUrl();
+export function updateStatusFor(url: string): UpdateStatus {
 	if (!url) return { configured: false, channel: "master", repoUrl: "", reason: "repo_not_configured" };
 	return { configured: true, channel: "master", repoUrl: url };
+}
+
+export function updateStatus(): UpdateStatus {
+	return updateStatusFor(repoUrl());
 }
 
 export interface UpdateCandidate {
@@ -36,11 +39,15 @@ export interface UpdateCandidate {
  * 构造单通道更新地址：`<repo>/archive/refs/heads/master.tar.gz`。
  * 未配置仓库时返回 null（调用方据此显示“未配置更新源”）。
  */
-export function updateTarballUrl(): string | null {
-	const status = updateStatus();
+export function updateTarballFor(url: string): string | null {
+	const status = updateStatusFor(url);
 	if (!status.configured) return null;
 	const base = status.repoUrl.replace(/\.git$/, "").replace(/\/$/, "");
 	return `${base}/archive/refs/heads/${UPDATE_BRANCH}.tar.gz`;
+}
+
+export function updateTarballUrl(): string | null {
+	return updateTarballFor(repoUrl());
 }
 
 export function describeUpdate(status: UpdateStatus = updateStatus()): string {

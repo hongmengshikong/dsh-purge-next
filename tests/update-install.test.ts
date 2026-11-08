@@ -47,17 +47,18 @@ describe("ensure-profile-bundle", () => {
 });
 
 describe("update payload", () => {
-	it("未配置 → unconfigured；配置 → master tarball", () => {
+	it("默认指向本仓库；env 可覆盖", () => {
 		const old = process.env.DSH_PURGE_REPO_URL;
 		delete process.env.DSH_PURGE_REPO_URL;
 		try {
-			expect(updatePayload()).toMatchObject({ ok: false, configured: false, channel: "master", tarball_url: null });
-			expect(formatUpdate(updatePayload())).toContain("未配置");
+			const payload = updatePayload();
+			expect(payload).toMatchObject({ ok: true, configured: true, channel: "master", repo_url: "https://github.com/hongmengshikong/dsh-purge-next" });
+			expect(payload.tarball_url).toContain("/archive/refs/heads/master.tar.gz");
 
-			process.env.DSH_PURGE_REPO_URL = "https://github.com/example/dsh-purge-next";
-			const configured = updatePayload();
-			expect(configured).toMatchObject({ ok: true, configured: true });
-			expect(configured.tarball_url).toContain("/archive/refs/heads/master.tar.gz");
+			process.env.DSH_PURGE_REPO_URL = "https://github.com/example/fork";
+			const overridden = updatePayload();
+			expect(overridden.repo_url).toBe("https://github.com/example/fork");
+			expect(formatUpdate(overridden)).toContain("example/fork");
 		} finally {
 			if (old === undefined) delete process.env.DSH_PURGE_REPO_URL;
 			else process.env.DSH_PURGE_REPO_URL = old;

@@ -63,7 +63,7 @@ dsh plugin --profile web add --ignore-scripts .\dsh-purge-next-0.2.2-rc.1.tgz
 
 - 仅支持 `0.2.2-rc.1`；换宿主需重跑 `gen-host-paths` / `fixture:fetch` / `gate`
 - 未迁移：POC 知识库（旧版已下架）、平台配置、模板检索、`unknown_*`、`agent_slot`、`evidence_upgrade/verify`
-- 更新源 URL 待仓库上传后填写（`DSH_PURGE_REPO_URL` 或 `src/update/check.ts` 的 `DEFAULT_REPO_URL`）
+- 更新源：`https://github.com/hongmengshikong/dsh-purge-next`（可用 `DSH_PURGE_REPO_URL` 覆盖）
 
 ## 上传后三步
 
