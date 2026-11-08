@@ -37,7 +37,15 @@ export function apply(ctx: PluginCtx): void {
 	if (seed.ok) ctx.logger.info(`[dsh-purge-next] prompt-inject: ${seed.action}`);
 	else ctx.logger.warn(`[dsh-purge-next] prompt-inject seed failed: ${seed.error ?? seed.action}`);
 
-	registerRedteamTools(ctx, dshHome);
+	const registerTools = (host: PluginCtx): void => {
+		try {
+			registerRedteamTools(host, dshHome);
+		} catch (error) {
+			ctx.logger.warn(`[dsh-purge-next] 工具注册失败: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	};
+	if (typeof ctx.inject === "function") ctx.inject(["tools"], (host) => registerTools(host as PluginCtx));
+	else registerTools(ctx);
 
 	const context = () => loadContext({ aiBase: findAiBase(), dshHome: findDshHome() });
 

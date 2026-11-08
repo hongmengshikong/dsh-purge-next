@@ -89,6 +89,7 @@
 | M5 HTTP 桥 | ✅ | `POST /redteam/api` → dispatch；会话级绑定（按 sessionId 隔离） |
 | M5 读路径 | ✅ | vulns/addVuln、credentials/addCredential、tunnels/addTunnel、chain/addChainStep；工具扩到 10 个 |
 | M6 UI 骨架 | ✅ | client 注册 `shell.overlay` Dock：status 计数 + 应用/还原按钮；loader-sim 校验 slot 注册 |
+| M6 真机 | ✅ | 3099 实例：client bundle 4269 B（含 dock/slot），`/dsh-purge-next/status` 200，`POST /redteam/api` bootstrap 200 |
 
 ---
 
@@ -272,6 +273,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 20:58 — 真机 UI：`/dsh-purge-next/status` 与 `POST /redteam/api` 在 3099 上分别 200/200；期间修掉 `ctx.tools` 未注入导致的插件激活失败（改为 `ctx.inject(["tools"])`）。
 - 2026-11-08 20:57 — M6 UI 骨架：client 用 `slots.inject("shell.overlay")` 注册 Dock（status 摘要 + 应用/还原按钮），bundle 4198 B；loader-sim 断言 slot 名与 id。79 tests 全绿。
 - 2026-11-08 20:56 — M5 读路径：补 vulns/addVuln、credentials/addCredential、tunnels/addTunnel、chain/addChainStep；工具新增 5 个（vuln_add/query、credential_add、tunnel_list、chain_add）。79 tests 全绿。
 - 2026-11-08 20:54 — M5 HTTP 桥：`redteam/http.ts` 挂 `POST /redteam/api`（兼容 body/事件流/异步迭代器）；`redteam/session.ts` 会话绑定 + `resolveEngagement`；新增 `session_bind/session_info` 工具。78 tests 全绿。
