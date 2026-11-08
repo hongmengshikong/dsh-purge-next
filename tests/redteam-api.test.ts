@@ -104,6 +104,25 @@ describe("redteam api 分派", () => {
 		expect((dispatch(root, { op: "webshells", engagement: "ev" }).items as { status: string }[])[0]?.status).toBe("offline");
 	});
 
+	it("saveScorePoint / deleteScorePoint / reportTargets / import", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "sp", scope: [] });
+		const added = dispatch(root, { op: "saveScorePoint", engagement: "sp", point: { code: "custom-x", name: "自建点", points: 5, dedup_scope: "none" } });
+		expect(added).toMatchObject({ ok: true, builtin: false });
+		const scores = dispatch(root, { op: "scores", engagement: "sp" }).items as { code: string }[];
+		expect(scores.map((item) => item.code)).toContain("custom-x");
+		expect(dispatch(root, { op: "deleteScorePoint", engagement: "sp", id: (added as { id: number }).id })).toMatchObject({ ok: true });
+		expect((dispatch(root, { op: "scores", engagement: "sp" }).items as { code: string }[]).map((item) => item.code)).not.toContain("custom-x");
+		expect(dispatch(root, { op: "deleteScorePoint", engagement: "sp", id: 1 })).toMatchObject({ ok: false, builtin: true });
+
+		dispatch(root, { op: "addVuln", engagement: "sp", vuln: { title: "SQLi", severity: "high", target: "10.0.0.5" } });
+		const targets = dispatch(root, { op: "reportTargets", engagement: "sp" }).items as { target: string; vulns: number }[];
+		expect(targets[0]).toMatchObject({ target: "10.0.0.5", vulns: 1 });
+
+		const imported = dispatch(root, { op: "import", engagement: "sp", bundle: { assets: [{ ip: "10.0.0.9" }] } });
+		expect(imported).toMatchObject({ ok: true, counts: { assets: 1 } });
+	});
+
 	it("sessions / consoleDigest / snapshot / attackGraph / update*", () => {
 		const root = tempRoot();
 		dispatch(root, { op: "openEngagement", name: "sm", scope: [] });

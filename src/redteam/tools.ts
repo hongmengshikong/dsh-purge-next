@@ -416,6 +416,74 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "assetLink", engagement: id, link: args }));
 			},
 		},
+		{
+			name: "redteam_shot_list",
+			description: "列出证据截图。",
+			parameters: { engagement: { type: "string" }, point_id: { type: "number" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "shots", engagement: id, point_id: args.point_id, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_shot_add",
+			description: "保存一张证据截图（base64）。",
+			parameters: {
+				engagement: { type: "string" },
+				data: { type: "string", required: true },
+				label: { type: "string" },
+				point_id: { type: "number" },
+				asset_id: { type: "number" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "shotAdd", engagement: id, shot: args }));
+			},
+		},
+		{
+			name: "redteam_credential_list",
+			description: "列出已获取凭据。",
+			parameters: { engagement: { type: "string" }, host: { type: "string" }, limit: { type: "number" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "credentials", engagement: id, host: args.host, limit: args.limit }));
+			},
+		},
+		{
+			name: "redteam_webshell_list",
+			description: "列出已上线 webshell。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "webshells", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_webshell_add",
+			description: "登记 webshell（url 必填，(url,pass_key) 幂等）。",
+			parameters: {
+				engagement: { type: "string" },
+				url: { type: "string", required: true },
+				pass_key: { type: "string" },
+				shell_type: { type: "string" },
+				status: { type: "string" },
+			},
+			execute(args, exec) {
+				const url = String(args.url ?? "").trim();
+				if (!url) throw new Error("url 必填");
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addWebshell", engagement: id, webshell: { ...args, url } }));
+			},
+		},
+		{
+			name: "redteam_attack_file_list",
+			description: "列出已保存的攻击文件。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "attackFiles", engagement: id }));
+			},
+		},
 	];
 }
 

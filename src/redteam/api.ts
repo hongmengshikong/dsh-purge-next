@@ -279,6 +279,67 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			});
 		}
 
+		if (op === "import") {
+			const body = (req.bundle ?? req) as Record<string, unknown>;
+			return dispatch(root, { ...req, op: "ingest", bundle: body });
+		}
+
+		if (op === "saveScorePoint") {
+			return withDb(root, id, (db) => {
+				const point = (req.point ?? req) as Record<string, unknown>;
+				const pointId = point.id !== undefined ? Number(point.id) : 0;
+				if (pointId) {
+					const current = db.prepare("SELECT builtin FROM score_point WHERE id = ?").get(pointId) as { builtin?: number } | undefined;
+					if (!current) return { ok: false, error: "score point not found" };
+					if (Number(current.builtin) === 1) return { ok: false, error: "内置得分点不可修改（只能停用）", builtin: true };
+					db.prepare(
+						`UPDATE score_point SET name = COALESCE(?, name), category = COALESCE(?, category), points = COALESCE(?, points),
+						   description = COALESCE(?, description), enabled = COALESCE(?, enabled), cap = COALESCE(?, cap), dedup_scope = COALESCE(?, dedup_scope),
+						   updated_at = ? WHERE id = ?`,
+					).run(
+						sqlv(point.name), sqlv(point.category), sqlv(point.points), sqlv(point.description), sqlv(point.enabled),
+						sqlv(point.cap), sqlv(point.dedup_scope), new Date().toISOString(), pointId,
+					);
+					return { ok: true, id: pointId, builtin: false };
+				}
+				const code = String(point.code ?? "").trim();
+				const name = String(point.name ?? "").trim();
+				if (!code || !name) return { ok: false, error: "code 与 name 必填" };
+				const exists = db.prepare("SELECT id FROM score_point WHERE code = ?").get(code) as { id?: number } | undefined;
+				if (exists?.id) return { ok: false, error: "code 已存在" };
+				const result = db.prepare(
+					`INSERT INTO score_point(code, name, category, points, description, enabled, sort_order, created_at, updated_at, cap, dedup_scope, legacy, builtin)
+					 VALUES(?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+				).run(
+					code, name, sqlv(point.category), sqlv(point.points) ?? 0, sqlv(point.description), sqlv(point.enabled) ?? 1,
+					Number((db.prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM score_point").get() as { n: number }).n),
+					new Date().toISOString(), new Date().toISOString(), sqlv(point.cap) ?? 0, sqlv(point.dedup_scope) ?? "none",
+				);
+				return { ok: true, id: Number((result as { lastInsertRowid?: number | bigint }).lastInsertRowid ?? 0), builtin: false };
+			});
+		}
+
+		if (op === "deleteScorePoint") {
+			return withDb(root, id, (db) => {
+				const pointId = Number(req.id ?? (req.point as Record<string, unknown> | undefined)?.id);
+				const current = db.prepare("SELECT builtin FROM score_point WHERE id = ?").get(pointId) as { builtin?: number } | undefined;
+				if (!current) return { ok: false, error: "score point not found" };
+				if (Number(current.builtin) === 1) return { ok: false, error: "内置得分点不可删除（只能停用）", builtin: true };
+				db.prepare("DELETE FROM score_hit WHERE point_id = ?").run(pointId);
+				db.prepare("DELETE FROM score_point WHERE id = ?").run(pointId);
+				return { ok: true, deleted: true };
+			});
+		}
+
+		if (op === "reportTargets") {
+			return withDb(root, id, (db) => {
+				const rows = db.prepare(`SELECT COALESCE(v.target, a.ip, '(未标注)') AS target,
+				  COUNT(*) AS vulns, SUM(CASE WHEN v.severity IN ('critical','high','medium') THEN 1 ELSE 0 END) AS serious
+				  FROM vuln v LEFT JOIN asset a ON a.id = v.asset_id GROUP BY target ORDER BY vulns DESC`).all();
+				return { ok: true, items: rows };
+			});
+		}
+
 		if (op === "sessions") {
 			return withDb(root, id, (db) => {
 				const shells = db.prepare("SELECT w.*, a.ip AS asset_ip FROM webshell w LEFT JOIN asset a ON a.id = w.asset_id ORDER BY w.id DESC").all() as Record<string, unknown>[];

@@ -43,6 +43,12 @@ describe("redteam tools", () => {
 			"redteam_vuln_update",
 			"redteam_tunnel_update",
 			"redteam_asset_link",
+			"redteam_shot_list",
+			"redteam_shot_add",
+			"redteam_credential_list",
+			"redteam_webshell_list",
+			"redteam_webshell_add",
+			"redteam_attack_file_list",
 		]);
 
 		const exec = { sessionId: "s-tools" };
