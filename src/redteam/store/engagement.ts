@@ -12,6 +12,7 @@ import { join, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { readMeta, writeMeta, type Meta } from "./meta.js";
 import { ASSET_FTS_DDL, DDL, HAS_FTS5, migrate } from "./schema.js";
+import { seedScorePoints } from "./scoring.js";
 
 export function nowIso(): string {
 	return new Date().toISOString();
@@ -109,15 +110,18 @@ export function openEngagement(
 
 	// 与旧实现一致：建全量 schema + 迁移（FTS5 缺席时跳过虚拟表）。
 	const dbFile = dbPathOf(paths, id);
-	if (!existsSync(dbFile)) {
-		const db = new DatabaseSync(dbFile);
-		try {
+	const fresh = !existsSync(dbFile);
+	const db = new DatabaseSync(dbFile);
+	try {
+		if (fresh) {
 			db.exec(DDL);
 			if (HAS_FTS5) db.exec(ASSET_FTS_DDL);
 			migrate(db);
-		} finally {
-			db.close();
 		}
+		// 旧实现每次 open 都播种默认得分点（幂等）。
+		seedScorePoints(db, now);
+	} finally {
+		db.close();
 	}
 
 	if (options.bindCurrent !== false) setActiveEngagement(root, id);

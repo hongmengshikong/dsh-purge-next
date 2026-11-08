@@ -72,7 +72,8 @@
 | M2 schema 全量 | ✅ | DDL/KNOWLEDGE_DDL 与旧实现 sha256 一致；迁移幂等；建库接进 openEngagement |
 | M2 资产读写 | ✅ | `upsertAsset/stats/listAssets`（SQL 与旧实现一致；asset 行已对照旧 `importBundle`） |
 | M2 ingest 完整链路 | ✅ | `ingestBundle` 八张表 dump 与旧 `importBundle` 逐字节一致（含 observation/edge/scan_run） |
-| M2 评分 | ⬜ | 下一项：seedStages / seedScorePoints / addScoreHit / scoreReport |
+| M2 阶段/得分点播种 | ✅ | 5 阶段 + 25 得分点；与旧实现 dump 完全一致 |
+| M2 计分 | ⬜ | 下一项：addScoreHit / listScorePoints / scoreReport（rule+cap+dedup） |
 
 ---
 
@@ -256,6 +257,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 20:35 — M2 评分配置：`score-data.ts` 由旧仓库生成（5 阶段 / 25 得分点），`scoring.ts` 移植 seedStages/seedScorePoints（同步内置元数据、保留启用状态）；`openEngagement` 自动播种；parity 测试 stage/score_point 两张表 dump 与旧实现完全一致。35 tests 全绿。
 - 2026-11-08 20:34 — M2 ingest：`src/redteam/store/ingest.ts` 移植 `importBundle`（scan_run/segment/asset/asset_name/port/service/fingerprint/observation/edge + FTS 重建），事务边界一致；`tests/ingest-parity.test.ts` 与旧实现对照，**八张表 dump 完全一致**。31 tests 全绿。
 - 2026-11-08 20:32 — M2 资产：`ip.ts`（ipToInt/cidrOf/scopeOfIp）与 `assets.ts`（upsertAsset/stats/listAssets）；旧 store `importBundle` 对照两行资产字段完全一致（8.8.8.8 external/live/portal、10.0.0.5 internal/unknown）。观测量（observation）尚未写入，属 ingest 端口后续。27 tests 全绿。
 - 2026-11-08 20:30 — M2 schema：`src/redteam/store/schema.ts` 全量移植（DDL 4 段 sha256 与旧实现一致，迁移幂等，FTS5 探测），`score-rules.ts` 提供 parseTargetPort；`openEngagement` 现在建全量 schema。23 tests 全绿。
