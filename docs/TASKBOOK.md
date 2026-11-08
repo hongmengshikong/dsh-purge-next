@@ -90,6 +90,7 @@
 | M5 读路径 | ✅ | vulns/addVuln、credentials/addCredential、tunnels/addTunnel、chain/addChainStep；工具扩到 10 个 |
 | M6 UI 骨架 | ✅ | client 注册 `shell.overlay` Dock：status 计数 + 应用/还原按钮；loader-sim 校验 slot 注册 |
 | M6 真机 | ✅ | 3099 实例：client bundle 4269 B（含 dock/slot），`/dsh-purge-next/status` 200，`POST /redteam/api` bootstrap 200 |
+| M6 整页面板 | ✅ | 清洗/演练台两个标签：补丁状态表、提示词、靶标、资产表、得分；bundle 11140 B |
 | M6 提示词编辑 | ✅ | `/dsh-purge-next/prompt` GET/POST + Dock 文本框；bundle 8556 B |
 | M6 Dock 升级 | ✅ | 显示靶标列表/当前靶标/得分概览，可切换靶标；bundle 6932 B，纯逻辑单测 |
 | M7 更新骨架 | ✅ | 单通道 master；仓库未配置时 unconfigured，配置后生成 master tarball URL |
@@ -336,6 +337,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:18 — M6 整页：`/dsh-purge-next/patches`（84 条逐项状态）+ 面板两标签（补丁表/提示词/靶标/资产/得分）；README 补齐。98 tests 全绿。
 - 2026-11-08 21:16 — M8 真机端到端：隔离宿主（pristine npx 72500… + DSH_HOME `_dsh-copy`）上 apply 93 次写入、status 69 applied / 36 required / 0 drifted、revert 57 文件后整树 sha256 回到基线；期间修复 `hostRevert` 根目录（pi-ai 在 @deepseek-ai 之外）。97 tests 全绿。
 - 2026-11-08 21:14 — M3/M6：stale bak 刷新（原文无 marker、bak 有 → 用当前原文覆盖 bak）；提示词编辑路由与 Dock 文本框；bundle 8556 B。97 tests 全绿。
 - 2026-11-08 21:13 — M5 工具收口：+8（asset_test/timeline、domain_index、web_list、shot_delete、score_point_save、report_targets、chain），工具 42/64；§9.2/§9.3 写清剩余分类与最终 parity 清单。96 tests 全绿。

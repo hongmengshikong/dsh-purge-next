@@ -1,6 +1,6 @@
 import type { PluginCtx } from "./host/types.js";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
-import { applyPayload, loadContext, readPromptPayload, revertPayload, savePromptPayload, seedPayload, statusPayload, updatePayload } from "./service.js";
+import { applyPayload, loadContext, patchesPayload, readPromptPayload, revertPayload, savePromptPayload, seedPayload, statusPayload, updatePayload } from "./service.js";
 import { readJsonBody } from "./redteam/http.js";
 import { registerRedteamTools } from "./redteam/tools.js";
 import { installRedteamApi } from "./redteam/http.js";
@@ -66,6 +66,14 @@ export function apply(ctx: PluginCtx): void {
 			handler: (_req, res) => {
 				const payload = applyPayload(context());
 				send(res, payload.ok ? 200 : 500, payload);
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/patches",
+			handler: (_req, res) => {
+				send(res, 200, patchesPayload(context()));
 				return undefined;
 			},
 		});

@@ -1,10 +1,5 @@
 /**
- * 浏览器端入口：浮层 Dock（补丁状态 + 演练台概览）。
- *
- * 数据源：
- *   GET  /dsh-purge-next/status
- *   POST /redteam/api  {op:"bootstrap"} / {op:"scores"}
- *   POST /dsh-purge-next/{apply,revert}
+ * 浏览器端入口：浮层面板（清洗 / 演练台两个标签页）。
  */
 import { createElement, useCallback, useEffect, useState } from "react";
 import {
@@ -31,7 +26,22 @@ interface ClientCtx {
 	slots?: SlotApi;
 }
 
+interface PatchRow {
+	id: number;
+	name: string;
+	layer: string;
+	status: string;
+}
+
+interface AssetRow {
+	id: number;
+	ip: string;
+	state?: string | null;
+	open_port_count?: number;
+}
+
 const h = createElement;
+const API = "/redteam/api";
 
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(path, { headers: { "content-type": "application/json" }, ...init });
@@ -39,7 +49,7 @@ async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const postApi = <T,>(body: Record<string, unknown>): Promise<T> =>
-	getJson<T>("/redteam/api", { method: "POST", body: JSON.stringify(body) });
+	getJson<T>(API, { method: "POST", body: JSON.stringify(body) });
 
 const styles = {
 	box: {
@@ -47,7 +57,9 @@ const styles = {
 		right: 16,
 		bottom: 16,
 		zIndex: 40,
-		width: 300,
+		width: 420,
+		maxHeight: "70vh",
+		overflow: "auto",
 		background: "var(--dsw-alias-bg-layer-2, #fff)",
 		border: "1px solid rgba(0,0,0,.12)",
 		borderRadius: 10,
@@ -55,39 +67,62 @@ const styles = {
 		fontSize: 12,
 		boxShadow: "0 6px 20px rgba(0,0,0,.12)",
 	} as const,
-	muted: { opacity: 0.75, marginBottom: 6 } as const,
-	row: { display: "flex", gap: 8, marginTop: 6 } as const,
+	muted: { opacity: 0.75, marginBottom: 4 } as const,
+	row: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } as const,
 	button: { padding: "4px 10px", cursor: "pointer" } as const,
-	engagement: { padding: "2px 8px", cursor: "pointer", fontSize: 11 } as const,
+	tab: { padding: "3px 10px", cursor: "pointer", borderBottom: "2px solid transparent" } as const,
+	tabOn: { padding: "3px 10px", cursor: "pointer", borderBottom: "2px solid currentColor", fontWeight: 600 } as const,
+	table: { width: "100%", borderCollapse: "collapse", marginTop: 6 } as const,
+	cell: { padding: "1px 4px", borderBottom: "1px solid rgba(0,0,0,.06)", textAlign: "left" } as const,
 };
 
-export function Dock(): unknown {
+const COLOR: Record<string, string> = {
+	applied: "#166534",
+	already: "#166534",
+	pending: "#a16207",
+	drifted: "#b91c1c",
+	missing_file: "#6b7280",
+	skipped: "#6b7280",
+	na: "#6b7280",
+};
+
+export function Panel(): unknown {
+	const [tab, setTab] = useState<"clean" | "redteam">("clean");
 	const [status, setStatus] = useState<StatusPayload | null>(null);
 	const [boot, setBoot] = useState<BootstrapPayload | null>(null);
 	const [score, setScore] = useState<ScorePayload | null>(null);
 	const [update, setUpdate] = useState<UpdatePayload | null>(null);
+	const [patches, setPatches] = useState<PatchRow[]>([]);
+	const [assets, setAssets] = useState<AssetRow[]>([]);
 	const [promptText, setPromptText] = useState("");
 	const [busy, setBusy] = useState(false);
 
 	const load = useCallback(async () => {
 		try {
-			const [nextStatus, nextBoot, nextUpdate] = await Promise.all([
+			const [nextStatus, nextBoot, nextUpdate, nextPatches] = await Promise.all([
 				getJson<StatusPayload>("/dsh-purge-next/status"),
 				postApi<BootstrapPayload>({ op: "bootstrap" }),
 				getJson<UpdatePayload>("/dsh-purge-next/update"),
+				getJson<{ rows?: PatchRow[] }>("/dsh-purge-next/patches"),
 			]);
 			setStatus(nextStatus);
 			setBoot(nextBoot);
 			setUpdate(nextUpdate);
-			try {
-				const prompt = await getJson<{ content?: string }>("/dsh-purge-next/prompt");
-				setPromptText(prompt.content ?? "");
-			} catch {
-				setPromptText("");
-			}
+			setPatches(nextPatches.rows ?? []);
 			const current = nextBoot.current;
-			if (current) setScore(await postApi<ScorePayload>({ op: "scores", engagement: current }));
-			else setScore(null);
+			if (current) {
+				const [nextScore, nextAssets] = await Promise.all([
+					postApi<ScorePayload>({ op: "scores", engagement: current }),
+					postApi<{ items?: AssetRow[] }>({ op: "assets", engagement: current, limit: 50 }),
+				]);
+				setScore(nextScore);
+				setAssets(nextAssets.items ?? []);
+			} else {
+				setScore(null);
+				setAssets([]);
+			}
+			const prompt = await getJson<{ content?: string }>("/dsh-purge-next/prompt");
+			setPromptText(prompt.content ?? "");
 		} catch (error) {
 			setStatus({ ok: false, error: error instanceof Error ? error.message : String(error) });
 		}
@@ -98,10 +133,10 @@ export function Dock(): unknown {
 	}, [load]);
 
 	const act = useCallback(
-		async (path: string) => {
+		async (path: string, body?: Record<string, unknown>) => {
 			setBusy(true);
 			try {
-				await getJson(path, { method: "POST" });
+				await getJson(path, body ? { method: "POST", body: JSON.stringify(body) } : { method: "POST" });
 				await load();
 			} finally {
 				setBusy(false);
@@ -124,67 +159,85 @@ export function Dock(): unknown {
 	);
 
 	const engagements = boot?.engagements ?? [];
+	const shownPatches = patches.filter((row) => row.status !== "na");
 
 	return h(
 		"div",
-		{ className: "dshp-next-dock", "data-dsh-purge-next": "dock", style: styles.box },
-		h("div", { style: { fontWeight: 600, marginBottom: 6 } }, "dsh-purge-next"),
-		h("div", { style: styles.muted }, formatStatus(status)),
-		h("div", { style: styles.muted }, formatBootstrap(boot)),
-		h("div", { style: styles.muted }, formatScore(score)),
-		h("div", { style: styles.muted }, formatUpdate(update)),
-		h("textarea", {
-			value: promptText,
-			onChange: (event: { target: { value: string } }) => setPromptText(event.target.value),
-			placeholder: "prompt-inject.md",
-			style: { width: "100%", height: 64, fontSize: 11, marginTop: 4, fontFamily: "monospace" },
-		}),
-		h(
-			"div",
-			{ style: styles.row },
-			h(
-				"button",
-				{
-					type: "button",
-					disabled: busy,
-					onClick: () => {
-						setBusy(true);
-						void getJson("/dsh-purge-next/prompt", { method: "POST", body: JSON.stringify({ content: promptText }) }).finally(() => setBusy(false));
-					},
-					style: styles.button,
-				},
-				"保存提示词",
-			),
-			h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "重载"),
+		{ className: "dshp-next-panel", "data-dsh-purge-next": "dock", style: styles.box },
+		h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
+			h("strong", null, "dsh-purge-next"),
+			h("span", { role: "button", style: tab === "clean" ? styles.tabOn : styles.tab, onClick: () => setTab("clean") }, "清洗"),
+			h("span", { role: "button", style: tab === "redteam" ? styles.tabOn : styles.tab, onClick: () => setTab("redteam") }, "演练台"),
 		),
-		engagements.length > 0
+		tab === "clean"
 			? h(
 					"div",
-					{ style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 } },
-					...engagements.map((item) =>
-						h(
-							"button",
-							{
-								key: item.id,
-								type: "button",
-								disabled: busy,
-								onClick: () => void activate(item.id),
-								style: styles.engagement,
+					null,
+					h("div", { style: styles.muted }, formatStatus(status)),
+					h("div", { style: styles.muted }, formatUpdate(update)),
+					h("textarea", {
+						value: promptText,
+						onChange: (event: { target: { value: string } }) => setPromptText(event.target.value),
+						placeholder: "prompt-inject.md",
+						style: { width: "100%", height: 56, fontSize: 11, marginTop: 4, fontFamily: "monospace" },
+					}),
+					h("div", { style: styles.row },
+						h("button", { type: "button", disabled: busy, onClick: () => void act("/dsh-purge-next/apply"), style: styles.button }, "应用"),
+						h("button", { type: "button", disabled: busy, onClick: () => void act("/dsh-purge-next/revert"), style: styles.button }, "还原"),
+						h("button", {
+							type: "button",
+							disabled: busy,
+							onClick: () => {
+								setBusy(true);
+								void getJson("/dsh-purge-next/prompt", { method: "POST", body: JSON.stringify({ content: promptText }) }).finally(() => setBusy(false));
 							},
-							engagementLabel(item, boot?.current),
-						),
+							style: styles.button,
+						}, "保存提示词"),
+						h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
+					),
+					h("table", { style: styles.table },
+						h("tbody", null, ...shownPatches.map((row) =>
+							h("tr", { key: row.id },
+								h("td", { style: styles.cell }, `#${row.id}`),
+								h("td", { style: styles.cell }, row.name),
+								h("td", { style: { ...styles.cell, color: COLOR[row.status] ?? "#333" } }, row.status),
+							),
+						)),
 					),
 				)
-			: null,
-		h(
-			"div",
-			{ style: styles.row },
-			h("button", { type: "button", disabled: busy, onClick: () => void act("/dsh-purge-next/apply"), style: styles.button }, "应用"),
-			h("button", { type: "button", disabled: busy, onClick: () => void act("/dsh-purge-next/revert"), style: styles.button }, "还原"),
-			h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
-		),
+			: h(
+					"div",
+					null,
+					h("div", { style: styles.muted }, formatBootstrap(boot)),
+					h("div", { style: styles.muted }, formatScore(score)),
+					h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, margin: "4px 0" } },
+						...engagements.map((item) =>
+							h("button", { key: item.id, type: "button", disabled: busy, onClick: () => void activate(item.id), style: styles.engagement }, engagementLabel(item, boot?.current)),
+						),
+					),
+					h("table", { style: styles.table },
+						h("thead", null, h("tr", null,
+							h("th", { style: styles.cell }, "IP"),
+							h("th", { style: styles.cell }, "状态"),
+							h("th", { style: styles.cell }, "端口"),
+						)),
+						h("tbody", null, ...assets.map((row) =>
+							h("tr", { key: row.id },
+								h("td", { style: styles.cell }, row.ip),
+								h("td", { style: styles.cell }, row.state ?? "unknown"),
+								h("td", { style: styles.cell }, String(row.open_port_count ?? "")),
+							),
+						)),
+					),
+					h("div", { style: styles.row },
+						h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
+					),
+				),
 	);
 }
+
+/** 兼容旧命名。 */
+export const Dock = Panel;
 
 export function apply(ctx: ClientCtx): void {
 	try {
@@ -194,7 +247,7 @@ export function apply(ctx: ClientCtx): void {
 	}
 	const slots = ctx?.slots;
 	if (!slots || typeof slots.inject !== "function" || typeof slots.register !== "function") return;
-	slots.inject("shell.overlay", () => slots.register({ name: "shell.overlay", id: "dsh-purge-next-dock", order: 60 }, Dock));
+	slots.inject("shell.overlay", () => slots.register({ name: "shell.overlay", id: "dsh-purge-next-dock", order: 60 }, Panel));
 }
 
-export default { name, inject, apply, Dock };
+export default { name, inject, apply, Panel, Dock };

@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { applyPayload, revertPayload, statusPayload } from "../src/service.js";
+import { applyPayload, patchesPayload, revertPayload, statusPayload } from "../src/service.js";
 import { loadPatchTables } from "../src/engine/load.js";
 import type { ServiceContext } from "../src/service.js";
 
@@ -42,6 +42,14 @@ describe.skipIf(!HAS_FIXTURE)("service payloads", () => {
 		const reverted = revertPayload(ctx);
 		expect(reverted.ok).toBe(true);
 		expect(reverted.reverted).toBeGreaterThan(40);
+	});
+
+	it("patches 列表覆盖 84 条并带状态", () => {
+		const { aiBase, root } = tempHost();
+		const payload = patchesPayload({ aiBase, dshHome: join(root, "home"), host: "0.2.2-rc.1", tables });
+		expect(payload.ok).toBe(true);
+		expect(payload.rows).toHaveLength(84);
+		expect(payload.rows[0]).toMatchObject({ id: 1, status: expect.stringMatching(/applied|pending|already/) });
 	});
 
 	it("缺少 ai_base 时返回明确错误", () => {

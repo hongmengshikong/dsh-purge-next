@@ -182,3 +182,34 @@ export function savePromptPayload(dshHome: string, content: string): PromptPaylo
 	const next = readPromptInjectFile(dshHome);
 	return { ok: true, saved: true, path: findOverrideFile(dshHome), content: next, hash: hashOverride(next) };
 }
+
+export interface PatchRow {
+	id: number;
+	name: string;
+	layer: string;
+	status: string;
+}
+
+export interface PatchesPayload {
+	ok: boolean;
+	rows: PatchRow[];
+	error?: string;
+}
+
+/** 逐条补丁状态（设置页表格用）。 */
+export function patchesPayload(ctx: ServiceContext): PatchesPayload {
+	if (!ctx.aiBase || !existsSync(ctx.aiBase)) return { ok: false, rows: [], error: "ai_base_not_found" };
+	if (!ctx.tables) return { ok: false, rows: [], error: "patches_not_loaded" };
+	try {
+		const status = hostStatus(ctx.aiBase, ctx.host, ctx.tables);
+		const rows = ctx.tables.all.map((patch) => ({
+			id: patch.id,
+			name: patch.name,
+			layer: patch.layer ?? "",
+			status: status.status[patch.id] ?? "unknown",
+		}));
+		return { ok: true, rows };
+	} catch (error) {
+		return { ok: false, rows: [], error: error instanceof Error ? error.message : String(error) };
+	}
+}
