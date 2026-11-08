@@ -22,7 +22,8 @@
     "patches",
     "client.js",
     "cordis.patch.yml",
-    "docs"
+    "docs",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node esbuild.config.ts",
@@ -32,7 +33,8 @@
     "gate": "npm run build && node lib/tools/gate.js",
     "prepare": "npm run build",
     "fixture:fetch": "node src/tools/fixture.ts",
-    "audit:parity": "node src/tools/parity-audit.ts"
+    "audit:parity": "node src/tools/parity-audit.ts",
+    "verify": "npm run typecheck && npm run build && npm test && npm run gate && npm run audit:parity"
   },
   "dependencies": {},
   "devDependencies": {

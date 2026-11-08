@@ -312,9 +312,11 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 | 真机 status / redteam api | ✅ | 3099：status 200、bootstrap 200 |
 | UI Dock（status/应用/还原/靶标/得分） | ✅ | client bundle + loader-sim |
 | 单通道更新（无 stable/beta） | ✅ | `update/check.ts` + 测试 |
-| dispatch op | 60 / 72 | 余 12：POC 8 + 模板 2 + 平台配置 3 − 重叠 |
-| 工具 | 42 / 64 | 余 22 见 §9.2 |
-| 设置页/演练台整页 UI | ⬜ | 目前只有浮层 Dock |
+| dispatch op | 63 / 72 | 余 14 全为 P2（POC 8 / 平台 3 / 模板 2 / probe） |
+| 工具 | 53 / 64 | 余 12 全为 P2（POC/unknown/evidence_upgrade/agent_slot） |
+| 设置页/演练台整页 UI | ✅ | 面板两标签（清洗/演练台/得分/截图/报告） |
+| 一键验证链 | ✅ | `npm run verify`（typecheck→build→test→gate→audit） |
+| 发布说明 | ✅ | `docs/RELEASE.md` |
 
 ## 10. 风险与已知坑
 
@@ -340,6 +342,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:25 — 发布准备：`docs/RELEASE.md`、`npm run verify` 一键链（typecheck/build/test/gate/audit）全绿；§9.3 只剩更新源 URL 待上传。
 - 2026-11-08 21:23 — 旧名兼容：attack_chain/attack_path（→attackGraph）、preflight、session_check、unverified_count、evidence_list/record（→shots/shotAdd）；新增 preflight/unverifiedCount op。工具 53/64、op 63/72；98 tests 全绿。
 - 2026-11-08 21:22 — parity 审计脚本：`npm run audit:parity` 对比旧/新名单（新名必须是旧名子集）；补 access_add/list、tunnel_add、webshell_update 工具与 scoreChain op。工具 46/64、op 61/72；98 tests 全绿。
 - 2026-11-08 21:20 — UI 深度：得分概览表、截图画廊（按需加载 base64）、报告查看；`saveScorePoint` 对内置点只允许启用/停用。bundle 13762 B。98 tests 全绿。
