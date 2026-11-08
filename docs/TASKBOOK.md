@@ -303,7 +303,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 | 项 | 状态 | 证据 |
 | --- | --- | --- |
 | 门禁 36/36、drift 0 | ✅ | `npm run gate` |
-| apply → revert 字节还原 | ✅ | `tests/apply.test.ts` sha256 全等 |
+| apply → revert 字节还原 | ✅ | 单元测试 + **真机端到端**（隔离宿主 72500…）：93 次写入 → 36/0/0 → revert 57 文件 → sha256 `dbae65a3…` 与基线全等 |
 | 二次 apply 幂等 | ✅ | applied=0、整树 hash 不变 |
 | 真机 status / redteam api | ✅ | 3099：status 200、bootstrap 200 |
 | UI Dock（status/应用/还原/靶标/得分） | ✅ | client bundle + loader-sim |
@@ -336,6 +336,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:16 — M8 真机端到端：隔离宿主（pristine npx 72500… + DSH_HOME `_dsh-copy`）上 apply 93 次写入、status 69 applied / 36 required / 0 drifted、revert 57 文件后整树 sha256 回到基线；期间修复 `hostRevert` 根目录（pi-ai 在 @deepseek-ai 之外）。97 tests 全绿。
 - 2026-11-08 21:14 — M3/M6：stale bak 刷新（原文无 marker、bak 有 → 用当前原文覆盖 bak）；提示词编辑路由与 Dock 文本框；bundle 8556 B。97 tests 全绿。
 - 2026-11-08 21:13 — M5 工具收口：+8（asset_test/timeline、domain_index、web_list、shot_delete、score_point_save、report_targets、chain），工具 42/64；§9.2/§9.3 写清剩余分类与最终 parity 清单。96 tests 全绿。
 - 2026-11-08 21:12 — M5 余项：import 别名、saveScorePoint/deleteScorePoint（内置点拒改拒删）、reportTargets；工具 +6（shot_list/add、credential_list、webshell_list/add、attack_file_list）。ops 60、tools 34；96 tests 全绿。

@@ -78,5 +78,6 @@ export function hostApply(aiBase: string, version: string, tables: PatchTables):
 }
 
 export function hostRevert(aiBase: string): { reverted: number; removed: number } {
-	return revertRoot(aiBase);
+	// 目标文件可能在同级 @earendil-works/...（#47/#49/#57），所以还原范围是 node_modules。
+	return revertRoot(dirname(aiBase));
 }
