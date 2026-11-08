@@ -1,0 +1,10 @@
+# 宿主快照必须逐字节保真（apply/revert 的 sha256 对比依赖它）
+tests/fixtures/** -text
+# 补丁语料按原样保存
+patches/** -text
+*.png binary
+*.jpg binary
+
+# 构建产物（不是源码）
+lib/** linguist-generated=true
+client.js linguist-generated=true

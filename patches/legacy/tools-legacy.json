@@ -1,0 +1,95 @@
+{
+  "schema": "dsh-purge/legacy-patches@1",
+  "note": "旧宿主兼容补丁留档：#40（0.1.5 complete-prompt，路径已消失）、#88（#87 旧输出形态的二次修饰）。#47/#49 已按 0.2.2 重写并恢复加载。",
+  "patches": [
+    {
+      "id": 40,
+      "name": "COMPLETE_PROMPT_KEEP_INJECT",
+      "layer": "0.1.5 兼容",
+      "layer_en": "0.1.5",
+      "desc": "complete 预设仍保留 dsh-purge 注入 / keep inject after complete prompt",
+      "file": [
+        "system-prompt",
+        "system-prompt-nested"
+      ],
+      "replacements": [
+        {
+          "pattern": {
+            "regex": "[ \\t]*const transformed = await this\\.ctx\\.waterfall\\(scopeTarget\\(this, scope\\), \"system-prompt\\/assemble\", assembly, context, \\(\\) => Promise\\.resolve\\(assembly\\)\\);\\n[ \\t]*if \\(completeSection === void 0 && !runtimeContextSuppressed\\) return transformed;\\n[ \\t]*const requiredContexts = new Set\\(\\[\\.\\.\\.contextByName\\.values\\(\\)\\]\\.filter\\(\\(entry\\) => entry\\.required === true\\)\\.map\\(\\(entry\\) => entry\\.name\\)\\);\\n[ \\t]*return \\{\\n[ \\t]*\\.\\.\\.transformed,\\n[ \\t]*sections: completeSection === void 0 \\? transformed\\.sections : \\[completeSection\\],\\n[ \\t]*contexts: runtimeContextSuppressed \\? transformed\\.contexts\\.filter\\(\\(entry\\) => requiredContexts\\.has\\(entry\\.name\\)\\) : transformed\\.contexts\\n[ \\t]*\\};",
+            "flags": ""
+          },
+          "replace": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\tconst requiredContexts = new Set([...contextByName.values()].filter((entry) => entry.required === true).map((entry) => entry.name));\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...purge, ...tail, base]; // [dsh-purge] complete prompt keeps inject + agent-instructions\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? transformed.contexts.filter((entry) => requiredContexts.has(entry.name)) : transformed.contexts\n\t\t};\n"
+        },
+        {
+          "pattern": {
+            "regex": "[ \\t]*const transformed = await this\\.ctx\\.waterfall\\(scopeTarget\\(this, scope\\), \"system-prompt\\/assemble\", assembly, context, \\(\\) => Promise\\.resolve\\(assembly\\)\\);\\n[ \\t]*if \\(completeSection === void 0 && !runtimeContextSuppressed\\) return transformed;\\n[ \\t]*return \\{\\n[ \\t]*\\.\\.\\.transformed,\\n[ \\t]*sections: completeSection === void 0 \\? transformed\\.sections : \\[completeSection\\],\\n[ \\t]*contexts: runtimeContextSuppressed \\? \\[\\] : transformed\\.contexts\\n[ \\t]*\\};",
+            "flags": ""
+          },
+          "replace": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...purge, ...tail, base]; // [dsh-purge] complete prompt keeps inject + agent-instructions\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};"
+        },
+        {
+          "pattern": "\t\tconst dshPurgeInject = (assembly.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\")).map((s) => String(s.text || \"\")).filter((t) => t.length > 0).join(\"\\n\\n\");\n\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return transformed;\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? transformed.sections : (function (complete, inject) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tif (!inject) return [base];\n\t\t\t\tif (String(base.text || \"\").includes(inject)) return [base];\n\t\t\t\treturn [{ ...base, text: inject + \"\\n\\n\" + base.text }]; // [dsh-purge] complete prompt keeps inject\n\t\t\t})(completeSection, dshPurgeInject),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};",
+          "replace": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...purge, ...tail, base]; // [dsh-purge] complete prompt keeps inject + agent-instructions\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};"
+        },
+        {
+          "pattern": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return transformed;\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? transformed.sections : (function (complete, purge) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\treturn [...purge, base]; // [dsh-purge] complete prompt keeps waterfall inject\n\t\t\t})(completeSection, dshPurgeSections),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};",
+          "replace": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...purge, ...tail, base]; // [dsh-purge] complete prompt keeps inject + agent-instructions\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};"
+        },
+        {
+          "pattern": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\t\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\treturn [...purge, base]; // [dsh-purge] complete prompt keeps waterfall inject\n\t\t\t})(completeSection, dshPurgeSections),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};",
+          "replace": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...purge, ...tail, base]; // [dsh-purge] complete prompt keeps inject + agent-instructions\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};"
+        },
+        {
+          "pattern": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...purge, ...tail, base]; // [dsh-purge] complete prompt keeps inject + agent-instructions\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};",
+          "replace": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...purge, ...tail, base]; // [dsh-purge] complete prompt keeps inject + agent-instructions\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};"
+        },
+        {
+          "pattern": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeRest, ...dshPurgeSections] }; // [dsh-purge] inject last after closer\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeRest, ...dshPurgeSections] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...tail, base, ...purge]; // [dsh-purge] inject last after closer\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};",
+          "replace": "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n\t\tconst dshPurgeSections = (transformed.sections || []).filter((s) => String(s && s.name || \"\").startsWith(\"dsh-purge\") && String(s.text || \"\").length > 0);\n\t\tconst dshPurgeRest = (transformed.sections || []).filter((s) => !String(s && s.name || \"\").startsWith(\"dsh-purge\"));\n\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return { ...transformed, sections: [...dshPurgeSections, ...dshPurgeRest] }; // [dsh-purge] every mode keeps system inject\n\t\treturn {\n\t\t\t...transformed,\n\t\t\tsections: completeSection === void 0 ? [...dshPurgeSections, ...dshPurgeRest] : (function (complete, purge, rest) {\n\t\t\t\tconst base = { ...complete };\n\t\t\t\tconst tail = rest.filter((s) => String(s?.name || \"\") !== String(base.name || \"\"));\n\t\t\t\treturn [...purge, ...tail, base]; // [dsh-purge] complete prompt keeps inject + agent-instructions\n\t\t\t})(completeSection, dshPurgeSections, dshPurgeRest),\n\t\t\tcontexts: runtimeContextSuppressed ? [] : transformed.contexts\n\t\t};"
+        }
+      ],
+      "forbid": [
+        "dsh-purge:committed"
+      ],
+      "markersAny": true,
+      "markers": [
+        "complete prompt keeps waterfall inject",
+        "complete prompt keeps inject + agent-instructions",
+        "inject last after closer"
+      ]
+    },
+    {
+      "id": 88,
+      "name": "HUNG_PROMPT_STRICT_NEEDLE",
+      "layer": "代码",
+      "layer_en": "Code",
+      "desc": "ChatML 头和正文尾都在才算挂住，只剩头或只剩尾都重新置顶",
+      "file": [
+        "agent-loop"
+      ],
+      "optional": true,
+      "skipIfMarked": true,
+      "replacements": [
+        {
+          "pattern": "\t\tif (dshPurgeHung && !(dshPurgeTail && dshPurgeNorm.includes(dshPurgeTail)) && !(dshPurgeHead && dshPurgeNorm.includes(dshPurgeHead))) {\n\t\t\trenderedPrompt = dshPurgeHung + (renderedPrompt ? \"\\n\\n\" + renderedPrompt : \"\"); // [dsh-purge-87] hang needle uses LF\n\t\t}",
+          "replace": "\t\tif (dshPurgeHung && !(dshPurgeTail && dshPurgeNorm.includes(dshPurgeTail) && dshPurgeHead && dshPurgeNorm.includes(dshPurgeHead))) { // [dsh-purge-88]\n\t\t\trenderedPrompt = dshPurgeHung + (renderedPrompt ? \"\\n\\n\" + renderedPrompt : \"\"); // [dsh-purge-87] hang needle uses LF\n\t\t}"
+        },
+        {
+          "pattern": "\t\tif (dshPurgeHung && !(dshPurgeTail && dshPurgeNorm.includes(dshPurgeTail)) && !(dshPurgeHead && dshPurgeNorm.includes(dshPurgeHead))) {\n\t\t\tsystem = dshPurgeHung + (system ? \"\\n\\n\" + system : \"\"); // [dsh-purge-87] hang needle uses LF\n\t\t}",
+          "replace": "\t\tif (dshPurgeHung && !(dshPurgeTail && dshPurgeNorm.includes(dshPurgeTail) && dshPurgeHead && dshPurgeNorm.includes(dshPurgeHead))) { // [dsh-purge-88]\n\t\t\tsystem = dshPurgeHung + (system ? \"\\n\\n\" + system : \"\"); // [dsh-purge-87] hang needle uses LF\n\t\t}"
+        },
+        {
+          "pattern": "\t\tif (dshPurgeHung && !(dshPurgeTail && dshPurgeNorm.includes(dshPurgeTail) && dshPurgeHead && dshPurgeNorm.includes(dshPurgeHead))) {\n\t\t\trenderedPrompt = dshPurgeHung + (renderedPrompt ? \"\\n\\n\" + renderedPrompt : \"\"); // [dsh-purge-87] hang needle uses LF\n\t\t}",
+          "replace": "\t\tif (dshPurgeHung && !(dshPurgeTail && dshPurgeNorm.includes(dshPurgeTail) && dshPurgeHead && dshPurgeNorm.includes(dshPurgeHead))) { // [dsh-purge-88]\n\t\t\trenderedPrompt = dshPurgeHung + (renderedPrompt ? \"\\n\\n\" + renderedPrompt : \"\"); // [dsh-purge-87] hang needle uses LF\n\t\t}"
+        },
+        {
+          "pattern": "\t\tif (dshPurgeHung && !(dshPurgeTail && dshPurgeNorm.includes(dshPurgeTail) && dshPurgeHead && dshPurgeNorm.includes(dshPurgeHead))) {\n\t\t\tsystem = dshPurgeHung + (system ? \"\\n\\n\" + system : \"\"); // [dsh-purge-87] hang needle uses LF\n\t\t}",
+          "replace": "\t\tif (dshPurgeHung && !(dshPurgeTail && dshPurgeNorm.includes(dshPurgeTail) && dshPurgeHead && dshPurgeNorm.includes(dshPurgeHead))) { // [dsh-purge-88]\n\t\t\tsystem = dshPurgeHung + (system ? \"\\n\\n\" + system : \"\"); // [dsh-purge-87] hang needle uses LF\n\t\t}"
+        }
+      ],
+      "markers": [
+        "[dsh-purge-88]"
+      ]
+    }
+  ]
+}

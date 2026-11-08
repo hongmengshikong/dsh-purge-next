@@ -1,0 +1,8 @@
+/node_modules/
+/lib/
+/client.js
+/tests/fixtures/
+/dist/
+*.log
+.DS_Store
+Thumbs.db
