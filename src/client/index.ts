@@ -1,7 +1,7 @@
 /**
  * 浏览器端入口：浮层面板（清洗 / 演练台两个标签页）。
  */
-import { createElement, useCallback, useEffect, useState } from "react";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import {
 	engagementLabel,
 	formatBootstrap,
@@ -54,26 +54,66 @@ const postApi = <T,>(body: Record<string, unknown>): Promise<T> =>
 const styles = {
 	box: {
 		position: "fixed",
-		right: 16,
-		bottom: 16,
-		zIndex: 40,
-		width: 420,
-		maxHeight: "70vh",
-		overflow: "auto",
-		background: "var(--dsw-alias-bg-layer-2, #fff)",
-		border: "1px solid rgba(0,0,0,.12)",
-		borderRadius: 10,
-		padding: "10px 12px",
+		zIndex: 60,
+		width: 560,
+		maxWidth: "calc(100vw - 24px)",
+		maxHeight: "80vh",
+		display: "flex",
+		flexDirection: "column",
+		background: "var(--dsw-alias-bg-layer-2, #1b1f27)",
+		color: "var(--dsw-alias-label-primary, #e6e6e6)",
+		border: "1px solid rgba(255,255,255,.10)",
+		borderRadius: 14,
+		boxShadow: "0 18px 48px rgba(0,0,0,.38)",
+		overflow: "hidden",
 		fontSize: 12,
-		boxShadow: "0 6px 20px rgba(0,0,0,.12)",
 	} as const,
-	muted: { opacity: 0.75, marginBottom: 4 } as const,
-	row: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } as const,
-	button: { padding: "4px 10px", cursor: "pointer" } as const,
-	tab: { padding: "3px 10px", cursor: "pointer", borderBottom: "2px solid transparent" } as const,
-	tabOn: { padding: "3px 10px", cursor: "pointer", borderBottom: "2px solid currentColor", fontWeight: 600 } as const,
-	table: { width: "100%", borderCollapse: "collapse", marginTop: 6 } as const,
-	cell: { padding: "1px 4px", borderBottom: "1px solid rgba(0,0,0,.06)", textAlign: "left" } as const,
+	header: {
+		display: "flex",
+		alignItems: "center",
+		gap: 8,
+		padding: "8px 10px",
+		background: "linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02))",
+		borderBottom: "1px solid rgba(255,255,255,.08)",
+		cursor: "grab",
+		userSelect: "none",
+		touchAction: "none",
+	} as const,
+	grip: { opacity: 0.45, fontSize: 14, letterSpacing: -2, cursor: "grab" } as const,
+	brand: { fontSize: 12, fontWeight: 700, letterSpacing: 0.3, whiteSpace: "nowrap" } as const,
+	tabs: { display: "flex", gap: 2, overflowX: "auto", flex: 1, scrollbarWidth: "none" } as const,
+	tab: { padding: "3px 9px", borderRadius: 999, cursor: "pointer", opacity: 0.7, whiteSpace: "nowrap", fontSize: 11.5 } as const,
+	tabOn: { padding: "3px 9px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", fontSize: 11.5, fontWeight: 600, opacity: 1, background: "rgba(99,102,241,.22)", color: "#c7d2fe" } as const,
+	iconBtn: { border: "none", background: "transparent", color: "inherit", cursor: "pointer", opacity: 0.6, fontSize: 14, lineHeight: 1, padding: "2px 4px" } as const,
+	body: { padding: "10px 12px 12px", overflow: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 6 } as const,
+	muted: { opacity: 0.72, lineHeight: 1.5 } as const,
+	row: { display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap", alignItems: "center" } as const,
+	button: {
+		padding: "5px 12px",
+		cursor: "pointer",
+		borderRadius: 8,
+		border: "1px solid rgba(255,255,255,.14)",
+		background: "rgba(255,255,255,.06)",
+		color: "inherit",
+		fontSize: 12,
+	} as const,
+	primary: {
+		padding: "5px 14px",
+		cursor: "pointer",
+		borderRadius: 8,
+		border: "1px solid rgba(99,102,241,.55)",
+		background: "rgba(99,102,241,.28)",
+		color: "#e0e7ff",
+		fontSize: 12,
+		fontWeight: 600,
+	} as const,
+	input: { flex: 1, minWidth: 120, fontSize: 11.5, padding: "4px 8px", borderRadius: 7, border: "1px solid rgba(255,255,255,.14)", background: "rgba(0,0,0,.20)", color: "inherit" } as const,
+	area: { width: "100%", fontSize: 11, padding: 8, borderRadius: 8, border: "1px solid rgba(255,255,255,.14)", background: "rgba(0,0,0,.20)", color: "inherit", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", resize: "vertical" } as const,
+	table: { width: "100%", borderCollapse: "collapse" as const, marginTop: 2, fontSize: 11.5 } as const,
+	th: { padding: "3px 6px", textAlign: "left" as const, opacity: 0.6, fontWeight: 500, borderBottom: "1px solid rgba(255,255,255,.10)" } as const,
+	cell: { padding: "2px 6px", borderBottom: "1px solid rgba(255,255,255,.05)", textAlign: "left" as const } as const,
+	chip: { padding: "1px 7px", borderRadius: 999, fontSize: 10.5, background: "rgba(255,255,255,.07)" } as const,
+	engagement: { padding: "2px 8px", cursor: "pointer", fontSize: 10.5, borderRadius: 999, border: "1px solid rgba(255,255,255,.14)", background: "transparent", color: "inherit" } as const,
 };
 
 const COLOR: Record<string, string> = {
@@ -101,6 +141,8 @@ export function Panel(): unknown {
 	const [skills, setSkills] = useState<{ id: string; library: string; description: string; valid: boolean; error: string | null }[]>([]);
 	const [skillName, setSkillName] = useState("");
 	const [newSkillName, setNewSkillName] = useState("");
+	const [skillImportDir, setSkillImportDir] = useState("");
+	const [skillHealth, setSkillHealth] = useState<{ id: string; ok: boolean; problems: { kind: string; target: string; fix: string }[] }[]>([]);
 	const [skillText, setSkillText] = useState("");
 	const [pocQuery, setPocQuery] = useState("");
 	const [pocItems, setPocItems] = useState<{ code: string; title: string; category?: string; verified?: number }[]>([]);
@@ -114,6 +156,58 @@ export function Panel(): unknown {
 	const [envDir, setEnvDir] = useState("");
 	const [promptText, setPromptText] = useState("");
 	const [busy, setBusy] = useState(false);
+	const [pos, setPos] = useState<{ x: number; y: number }>({ x: -1, y: -1 });
+	const [collapsed, setCollapsed] = useState(false);
+	const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+
+	const defaultPos = useCallback(() => {
+		if (typeof window === "undefined") return { x: 16, y: 16 };
+		return { x: Math.max(8, window.innerWidth - 600), y: Math.max(8, window.innerHeight - 640) };
+	}, []);
+
+	useEffect(() => {
+		try {
+			const raw = localStorage.getItem("dshp-next-pos");
+			if (raw) {
+				const saved = JSON.parse(raw) as { x?: number; y?: number };
+				if (typeof saved.x === "number" && typeof saved.y === "number") {
+					setPos(saved);
+					return;
+				}
+			}
+		} catch {
+			/* 忽略坏位置 */
+		}
+		setPos(defaultPos());
+	}, [defaultPos]);
+
+	const startDrag = useCallback((event: { clientX: number; clientY: number; button?: number; currentTarget: { setPointerCapture?: (id: number) => void }; pointerId: number }) => {
+		if (event.button !== undefined && event.button !== 0) return;
+		dragRef.current = { dx: event.clientX - pos.x, dy: event.clientY - pos.y };
+		event.currentTarget.setPointerCapture?.(event.pointerId);
+	}, [pos.x, pos.y]);
+
+	const moveDrag = useCallback((event: { clientX: number; clientY: number; currentTarget: { offsetWidth?: number } }) => {
+		const drag = dragRef.current;
+		if (!drag) return;
+		const width = event.currentTarget.offsetWidth ?? 560;
+		const maxX = Math.max(8, (typeof window === "undefined" ? 1200 : window.innerWidth) - width - 8);
+		const maxY = Math.max(8, (typeof window === "undefined" ? 900 : window.innerHeight) - 48);
+		setPos({
+			x: Math.min(Math.max(8, event.clientX - drag.dx), maxX),
+			y: Math.min(Math.max(8, event.clientY - drag.dy), maxY),
+		});
+	}, []);
+
+	const endDrag = useCallback(() => {
+		if (!dragRef.current) return;
+		dragRef.current = null;
+		try {
+			localStorage.setItem("dshp-next-pos", JSON.stringify(pos));
+		} catch {
+			/* 忽略存储失败 */
+		}
+	}, [pos]);
 
 	const load = useCallback(async () => {
 		try {
@@ -195,16 +289,38 @@ export function Panel(): unknown {
 
 	return h(
 		"div",
-		{ className: "dshp-next-panel", "data-dsh-purge-next": "dock", style: styles.box },
-		h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
-			h("strong", null, "dsh-purge-next"),
-			h("span", { role: "button", style: tab === "clean" ? styles.tabOn : styles.tab, onClick: () => setTab("clean") }, "清洗"),
-			h("span", { role: "button", style: tab === "redteam" ? styles.tabOn : styles.tab, onClick: () => setTab("redteam") }, "演练台"),
-			h("span", { role: "button", style: tab === "skills" ? styles.tabOn : styles.tab, onClick: () => setTab("skills") }, "技能库"),
-			h("span", { role: "button", style: tab === "knowledge" ? styles.tabOn : styles.tab, onClick: () => setTab("knowledge") }, "知识库"),
-			h("span", { role: "button", style: tab === "env" ? styles.tabOn : styles.tab, onClick: () => setTab("env") }, "环境适配"),
+		{ className: "dshp-next-panel", "data-dsh-purge-next": "dock", style: { ...styles.box, left: pos.x, top: pos.y, visibility: pos.x < 0 ? "hidden" : "visible" } },
+		h("div", {
+			style: styles.header,
+			onPointerDown: startDrag,
+			onPointerMove: moveDrag,
+			onPointerUp: endDrag,
+			onPointerCancel: endDrag,
+		},
+			h("span", { style: styles.grip }, "⠿"),
+			h("strong", { style: styles.brand }, "dsh-purge-next"),
+			h("div", { style: styles.tabs, onPointerDown: (event: { stopPropagation: () => void }) => event.stopPropagation() },
+				h("span", { role: "button", style: tab === "clean" ? styles.tabOn : styles.tab, onClick: () => setTab("clean") }, "清洗"),
+				h("span", { role: "button", style: tab === "redteam" ? styles.tabOn : styles.tab, onClick: () => setTab("redteam") }, "演练台"),
+				h("span", { role: "button", style: tab === "skills" ? styles.tabOn : styles.tab, onClick: () => setTab("skills") }, "技能库"),
+				h("span", { role: "button", style: tab === "knowledge" ? styles.tabOn : styles.tab, onClick: () => setTab("knowledge") }, "知识库"),
+				h("span", { role: "button", style: tab === "env" ? styles.tabOn : styles.tab, onClick: () => setTab("env") }, "环境适配"),
+			),
+			h("button", {
+				type: "button",
+				style: styles.iconBtn,
+				title: "回到右下角",
+				onClick: () => setPos(defaultPos()),
+			}, "⟲"),
+			h("button", {
+				type: "button",
+				style: styles.iconBtn,
+				title: collapsed ? "展开" : "收起",
+				onClick: () => setCollapsed(!collapsed),
+			}, collapsed ? "▢" : "—"),
 		),
-		tab === "clean"
+		collapsed ? null : h("div", { style: styles.body },
+			tab === "clean"
 			? h(
 					"div",
 					null,
@@ -393,6 +509,56 @@ export function Panel(): unknown {
 							}, "删除（redteam）"),
 							h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "刷新"),
 						),
+						h("div", { style: styles.row },
+							h("input", {
+								value: skillImportDir,
+								onChange: (event: { target: { value: string } }) => setSkillImportDir(event.target.value),
+								placeholder: "技能目录或 .md 路径",
+								style: { flex: 1, fontSize: 11 },
+							}),
+							h("button", {
+								type: "button",
+								disabled: busy || !skillImportDir.trim(),
+								onClick: async () => {
+									setBusy(true);
+									try {
+										await postApi({ op: "skillImport", path: skillImportDir });
+										await load();
+									} finally {
+										setBusy(false);
+									}
+								},
+								style: styles.button,
+							}, "导入"),
+							h("button", {
+								type: "button",
+								disabled: busy,
+								onClick: async () => {
+									setBusy(true);
+									try {
+										await postApi({ op: "skillInstallBundled" });
+										await load();
+									} finally {
+										setBusy(false);
+									}
+								},
+								style: styles.button,
+							}, "安装内置技能"),
+							h("button", {
+								type: "button",
+								disabled: busy,
+								onClick: async () => {
+									const result = await postApi<{ items?: { id: string; ok: boolean; problems: { kind: string; target: string; fix: string }[] }[] }>({ op: "skillHealth" });
+									setSkillHealth(result.items ?? []);
+								},
+								style: styles.button,
+							}, "体检"),
+						),
+						...skillHealth.filter((item) => !item.ok).slice(0, 6).map((item) =>
+							h("div", { key: item.id, style: { fontSize: 11, color: "#b45309", marginTop: 2 } },
+								item.id + "：" + item.problems.map((problem) => problem.fix).join("；"),
+							),
+						),
 					)
 			: tab === "knowledge"
 				? h(
@@ -541,6 +707,7 @@ export function Panel(): unknown {
 							),
 						)
 					: null,
+			),
 	);
 }
 

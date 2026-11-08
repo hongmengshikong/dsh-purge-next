@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { deleteSkill, parseSkillDocument, readSkill, saveSkill, skillCatalog, skillsStatus } from "../src/redteam/skills.js";
+import { deleteSkill, importSkillPath, installBundledSkills, parseSkillDocument, readSkill, saveSkill, skillCatalog, skillHealth, skillsStatus } from "../src/redteam/skills.js";
 import { dispatch } from "../src/redteam/api.js";
 
 const dirs: string[] = [];
@@ -68,5 +68,41 @@ describe("skills", () => {
 
 		expect(dispatch(root, { op: "skillSave", name: "saved-skill", content: "正文", description: "保存" })).toMatchObject({ ok: true });
 		expect(dispatch(root, { op: "skillDelete", name: "saved-skill" })).toMatchObject({ ok: true, removed: true });
+	});
+});
+
+describe("bundled skills / import / health", () => {
+	it("随包技能安装是幂等的", () => {
+		const home = tempHome();
+		const root = join(home, "redteam");
+		const first = installBundledSkills(root);
+		expect(first.installed.length).toBeGreaterThanOrEqual(20);
+		expect(skillCatalog(root).filter((item) => item.library === "redteam").length).toBe(first.installed.length);
+		const second = installBundledSkills(root);
+		expect(second.installed).toHaveLength(0);
+		expect(second.skipped).toBe(first.installed.length);
+	});
+
+	it("从目录/文件导入", () => {
+		const home = tempHome();
+		const root = join(home, "redteam");
+		writeSkill(home, "imported-skill", "导入的技能");
+		expect(importSkillPath(root, join(home, "imported-skill"))).toMatchObject({ ok: true, id: "imported-skill" });
+		expect(readSkill(root, "imported-skill")?.content).toContain("导入的技能");
+
+		const md = join(home, "flat.md");
+		writeFileSync(md, "---\nname: flat-skill\ndescription: 平铺\n---\n\n正文\n", "utf8");
+		expect(importSkillPath(root, md)).toMatchObject({ ok: true, id: "flat-skill" });
+	});
+
+	it("体检：缺工具与缺 key 都会给修复提示", () => {
+		const home = tempHome();
+		const root = join(home, "redteam");
+		writeSkill(join(root, "skills"), "needs-fscan", "需要 fscan", "用 fscan 扫内网，FOFA_KEY 也要配");
+		const item = skillCatalog(root).find((entry) => entry.id === "needs-fscan");
+		expect(item).toBeDefined();
+		const health = skillHealth(root, item!);
+		expect(health.ok).toBe(false);
+		expect(health.problems.map((problem) => problem.target)).toEqual(expect.arrayContaining(["fscan", "FOFA_KEY"]));
 	});
 });

@@ -1,4 +1,4 @@
-# dsh-purge-next 0.2.2-rc.2 发布说明（满血版）
+# dsh-purge-next 0.2.2-rc.1-full.1 发布说明（满血版）
 
 > 与宿主 `0.2.2-rc.1` **1:1 钉死**。只支持这一版宿主。
 
@@ -35,7 +35,7 @@
 
 - **POC 知识库**：`knowledge.db`（schema/FTS/老库补列迁移）、8 个 op、6 个工具、正文落盘 `pocs/<code>/`
 - **nuclei 模板检索**：平台配置目录优先、7 天索引缓存、`templateSearch/Stats`
-- **技能库**：redteam + official 双目录扫描、frontmatter 解析、读写删、面板新建
+- **技能库**：redteam + official 双目录扫描、frontmatter 解析、读写删、面板新建；随包 23 个红队技能自动安装（缺失才补）；目录/.md 导入；工具/密钥体检与修复提示
 - **环境适配**：`platform-config` 工具解析/整包分配/Kali 探测、3 个 op、面板页
 - **证据账本**：语义哈希、record/verify/upgrade/未闭环计数、5 个工具
 - **未解决问题**：UnknownRegistry 3 个工具
@@ -49,7 +49,7 @@
 npm run typecheck     通过
 npm test              25 文件 / 98 条全过
 npm run gate          required 36 / bad 0 / drifted 0
-npm run audit:parity  tools 65/64（缺 0）、ops 91/72（缺 0）
+npm run audit:parity  tools 65/64（缺 0）、ops 93/72（缺 0）
 真机 apply→revert     93 次写入 / 57 文件还原，sha256 回到基线 dbae65a3…
 ```
 

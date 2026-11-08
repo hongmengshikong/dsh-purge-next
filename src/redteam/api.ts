@@ -23,7 +23,7 @@ import { deletePoc, getPoc, markPocUsed, pocStats, savePoc, searchPocs, updatePo
 import { searchTemplates, templateStats } from "./knowledge/templates.js";
 import { assignToolkitFolder, loadPlatformConfig, platformSummary, savePlatformConfig } from "./platform-config.js";
 import { EvidenceLedger, UnknownRegistry } from "./evidence-ledger.js";
-import { deleteSkill, readSkill, saveSkill, skillCatalog, skillsStatus } from "./skills.js";
+import { deleteSkill, importSkillPath, installBundledSkills, readSkill, saveSkill, skillCatalog, skillHealth, skillsHealth, skillsStatus } from "./skills.js";
 import { probeSessions } from "./probe.js";
 
 type SqlValue = string | number | null;
@@ -77,6 +77,20 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 		}
 
 		if (op === "skillCatalog") return { ok: true, items: skillCatalog(root), status: skillsStatus(root) };
+
+		if (op === "skillInstallBundled") {
+			const result = installBundledSkills(root);
+			return { ok: true, ...result, items: skillCatalog(root), status: skillsStatus(root) };
+		}
+
+		if (op === "skillImport") return { ...importSkillPath(root, String(req.path ?? "")), items: skillCatalog(root) };
+
+		if (op === "skillHealth") return { ok: true, items: skillsHealth(root) };
+
+		if (op === "skillHealthOne") {
+			const hit = skillCatalog(root).find((item) => item.id === req.name);
+			return hit ? { ...skillHealth(root, hit) } : { ok: false, error: "skill not found" };
+		}
 
 		if (op === "skillRead") {
 			const hit = readSkill(root, String(req.name ?? ""), req.library === "official" ? "official" : "redteam");

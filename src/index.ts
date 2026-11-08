@@ -1,6 +1,7 @@
 import type { PluginCtx } from "./host/types.js";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
 import { applyPayload, loadContext, patchesPayload, readPromptPayload, revertPayload, savePromptPayload, seedPayload, statusPayload, updatePayload } from "./service.js";
+import { installBundledSkills } from "./redteam/skills.js";
 import { readJsonBody } from "./redteam/http.js";
 import { registerRedteamTools } from "./redteam/tools.js";
 import { installRedteamApi } from "./redteam/http.js";
