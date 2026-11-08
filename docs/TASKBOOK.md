@@ -1,267 +1,257 @@
 # dsh-purge-next 任务书
 
 > 这份文件是项目的**唯一进度真相**。每次开工先读「§2 当前状态」，收工前更新它。
-> 新窗口接手时，只读这一份就能知道：做到哪、下一步做什么、怎么验证。
+> 开发过程中发现新问题/新约束，**直接改这份文档**（改完在 §12 记一行），不要另开文档。
 
-- 仓库：`D:\Home\dsh-purge-next`（git 已 init，尚未建首个 commit）
+- 仓库：`D:\Home\dsh-purge-next`（git 已重建，单一初始提交）
 - 参考仓库（冻结，只读）：`D:\Home\dsh-purge`，tag `v0.2.2-rc.1` = `385ce36`
-- 目标宿主：DSH `0.2.2-rc.1`（安装于 npx 缓存 `_npx\1e7f6d9597241db0`）
-- 最后更新：2026-11-08 20:10（PoC 通过）
+- 目标宿主：DSH `0.2.2-rc.1`（npx 缓存 `_npx\1e7f6d9597241db0`）
+- 本仓库远端：**尚未上传**（上传后把 URL 填到 §9 与 update 源配置）
+- 最后更新：2026-11-08 20:30（确立全面重构目标）
 
 ---
 
-## 1. 项目目标与边界
+## 1. 目标与范围
 
-### 目标
-用 TypeScript 重写 dsh-purge，交付形态不变（DSH 插件、零运行时依赖），换取：
-1. 红队数据层（SQLite / 评分 / 工具契约）的类型安全；
-2. 可测试的构建链（tsc + esbuild），摆脱 `build-client.mjs` 的字符串切片；
-3. 一份 API 契约同时给 server 与 client 用。
+### 最终目标
+用 TypeScript 全面重构 dsh-purge，交付 `dsh-purge-next`，在 DSH 宿主上达到**与 dsh-purge 等价的效果**：
 
-### 非目标（明确不做）
-- 不重写补丁语料（`patches/*.json` 原样搬运，175 KB / 84 条锚点）。
-- 不重写宿主适配知识（锚点、门禁、快照）。
-- 不做全量 TS：补丁引擎 / 桌面层 / UI bundle 的类型化收益低，按里程碑再定。
-- 不引入运行时依赖（`dependencies` 必须保持 `{}`）。
+1. 门禁：`required 36 / bad 0 / drifted 0`；
+2. `apply → revert` 后宿主文件与快照**字节级一致**；
+3. 二次 apply 幂等（`applied=0`）；
+4. 提示词注入、工具注入、红队演练台（资产库/评分/报告/UI）功能对齐；
+5. 安装/更新链路可用，且**更新源指向本仓库**；
+6. 主线只保留 TS 源码、配置、补丁语料与文档。
+
+### 重构范围（全部要迁）
+| 层 | 旧仓库位置 | 新仓库目标 | 里程碑 |
+| --- | --- | --- | --- |
+| 补丁引擎 | `lib/core.js` | `src/engine/*` | M3 |
+| 提示词注入 | `lib/inject*.js`、`lib/default-prompt-inject.md` | `src/prompt/*` | M4 |
+| 红队数据层 | `lib/redteam/store-core.js` 等 | `src/redteam/store/*` | M2 |
+| 红队工具 | `lib/redteam/tools.js` | `src/redteam/tools.ts` | M5 |
+| 红队 HTTP API | `lib/redteam/ui.js` | `src/redteam/api.ts` | M5 |
+| 红队 UI | `lib/redteam/client.js` | `src/client/*`（TSX） | M6 |
+| 更新/安装 | `lib/update.js`、`scripts/ensure-profile-bundle.mjs` | `src/update/*`、`src/tools/*` | M7 |
+| 门禁/快照工具 | `scripts/host-*.mjs` | `src/tools/*` | 已起步 |
+
+### 明确不做
+- 不重写 `patches/*.json` 的锚点语义（原样搬运）。
+- 不保留「正式版 / 测试版」双通道：**只有一条主线**（`master`），没有 `beta` 分支、没有 channel 切换、没有 `channel.json`（见 D7）。
+- 不引入运行时依赖。
+- 不在主线提交构建产物与宿主快照。
 
 ### 硬约束（平台契约）
 | 约束 | 说明 |
 | --- | --- |
-| `main: lib/index.js` | 宿主直接 import 构建产物 |
-| `exports` 子路径 | `./client`、`./redteam`、`./redteam/store` 必须保留 |
-| `dsh.client` | `platform: "web"` + `inject` 列表，否则 client 不加载 |
-| `dsh.bundle.patch` | `cordis.patch.yml` 里写 insert |
-| 插件导出 | `{ name, inject, apply }`，`name` 必须与包名一致（踩过：不一致会导致 client 不注册） |
-| client 形态 | `window.__ModuleLoader__.load({ id, factory })`，`factory(require)` 返回带 `apply/inject` 的对象 |
+| `main: lib/index.js` | 宿主直接 import 构建产物（产物由 `prepare`/`npm pack` 生成，不入库） |
+| `exports` 子路径 | `./client`、`./redteam`、`./redteam/store` |
+| `dsh.client` | `platform: "web"` + `inject` 列表 |
+| `dsh.bundle.patch` | `cordis.patch.yml` 写 insert |
+| 插件导出 | `{ name, inject, apply }`，`name` 必须与包名一致 |
+| client 形态 | `window.__ModuleLoader__.load({ id, factory })` |
 | `engines >=22` | `node:sqlite` 需要 |
-| `lib/` 是产物 | 源码在 `src/`；`lib/`、`client.js`、`tests/fixtures/` **都不入库**，由 `npm run build` / `fixture:fetch` 生成 |
+| 零运行时依赖 | `dependencies: {}` |
 
 ---
 
-## 2. 当前状态（每次更新这里）
+## 2. 当前状态
 
-**阶段：M1 完成（语料 + loader + gate 全绿），下一步 M2 store parity。**
+**阶段：M1 完成；M2（红队数据层 parity）进行中。**
 
 | 项 | 状态 | 证据 |
 | --- | --- | --- |
-| 项目骨架 | ✅ | `src/`、`tests/`、`docs/`、`esbuild.config.mjs`、`tsconfig.json` |
-| TS 构建 | ✅ | `npm run build` → `lib/` + `client.js`（1792 B） |
-| 单元测试 | ✅ | `tests/store.test.ts` 5/5 |
-| loader 模拟 | ✅ | `tests/loader-sim.mjs`：id/inject/apply/Panel 全通过 |
-| 真机注册 | ✅ | 隔离实例 boot HTML 的 manifest 含 `{"id":"dsh-purge-next","url":"plugins/??dsh-purge-next/client.js&rev=…"}` |
-| 真机下发 | ✅ | 该 URL 200、1863 B、含 `data-dsh-purge-next` |
-| 真机执行 | ✅ | 浏览器控制台 `document.body.dataset.dshPurgeNext` → `'loaded'` |
-| M1 语料搬运 | ✅ | `patches/` 8 个文件；prompt 10 / code 3 / engine 8 / tools 63 = 84 |
-| M1 loader | ✅ | `src/engine/{types,codec,load}.ts`；`tests/engine-load.test.ts` 4 条通过 |
-| M1 gate | ✅ | `npm run gate` → required 36 / bad 0 / drifted 0 / parity diff 0 |
-
-**下一步：M1（补丁引擎骨架 + 语料搬运），见 §5。**
+| 仓库重建（单提交、无产物/快照） | ✅ | `029f960`，36 个 tracked 文件 |
+| TS 构建 | ✅ | `npm run build` → `lib/` + `client.js` |
+| 语料 | ✅ | 84 条（10/3/8/63） |
+| status parity | ✅ | 与旧 `core.patchStatus` 逐 id 一致（0 diff） |
+| 门禁 | ✅ | required 36 / bad 0 / drifted 0 |
+| client 真机 | ✅ | 隔离实例 `dataset.dshPurgeNext === "loaded"` |
+| 快照取值 | ✅ | `npm run fixture:fetch`（不入库） |
+| M2 engagement 生命周期 | ✅ | `slugify/open/list/active`，7 条单测 |
+| M2 数据方法清单 | ⬜ | 下一项：schema 全量 + asset/finding/score parity |
 
 ---
 
-## 3. 目录结构与职责
+## 3. 目录结构
 
 ```
 src/
-  index.ts                 主插件入口（name/inject/apply）
-  host/types.ts            宿主最小契约（logger/on/effect/get/provide/tools/webServer）
-  engine/                  【M1】补丁引擎：加载 patches、apply/status/revert
-    types.ts                PatchSpec / PatchTable / ApplyResult
-    load.ts                 读 patches/*.json（运行时 fs，不用 import assertions）
+  index.ts                 主插件入口
+  host/types.ts            宿主最小契约
+  engine/                  补丁引擎（types/codec/load/status；M3 加 apply/revert）
+  prompt/                  【M4】提示词注入与清洗
   redteam/
     index.ts                演练台插件壳
-    store/                  【M2】数据层（已起步）
-      types.ts              实体 + 行类型 + ScoreResult
-      schema.ts             DDL + 幂等迁移
-      store.ts              DatabaseSync 封装、upsert、评分
-      index.ts              re-export
-  client/
-    index.ts                【M3】UI 入口（当前只有 PoC 标记）
+    store/                  数据层（schema/store/types；M2 扩 queries/score）
+    tools.ts                【M5】工具定义
+    api.ts                  【M5】HTTP /redteam/api
+  client/index.ts          【M6】UI（TSX）
+  update/                  【M7】单通道更新
   tools/
-    gate.ts                 门禁：快照 status + 必需补丁判定（node lib/tools/gate.js）
-patches/                    【M1】从旧仓库原样复制（不得手改语义）
-tests/
-  store.test.ts             数据层单测
-  loader-sim.test.ts        vm 模拟 __ModuleLoader__（读根目录 client.js）
-  engine-load.test.ts       语料加载 + 计数 + schema 形状
-  status-parity.test.ts     与旧 core.patchStatus 逐 id 对比
-  fixtures/                 hosts 快照（不入库；npm run fixture:fetch 生成）
-docs/
-  TASKBOOK.md               本文件
-  POC.md                    client 构建 PoC 记录
+    gate.ts                 门禁
+    fixture.ts              快照获取
+tests/                     全部 .ts
+patches/                   84 条语料（入库）
+docs/TASKBOOK.md           本文件
 ```
 
 ---
 
 ## 4. 开发规范
 
-### 语言与风格
-- **源码 100% TypeScript**：`src/**` 与 `tests/**` 不允许出现 `.js/.mjs/.cjs`。
-- `lib/**` 与根 `client.js` 是构建产物（宿主只能执行 JS），已在 `.gitattributes` 标记 linguist-generated，不手改。
-- `tests/fixtures/**` 是宿主官方文件快照（上游 .js），属于测试数据，不是本项目源码。
-- `strict: true`、`noUncheckedIndexedAccess: true`；禁止 `any`（必要时 `unknown` + 收窄）。
-- ESM：相对导入必须带 `.js` 后缀（NodeNext）。
-- 错误处理：不吞异常；确需兜底时写 `catch (err) { /* 原因 */ }` 并注释为什么可以吞。
-- 注释只写“为什么”，不写“是什么”。
-
-### 构建与产物
-- 源码只改 `src/`；`lib/` 与 `client.js` 由 `npm run build` 生成，**不进 git**（.gitignore）。
-- 提交前必须：`npm run build && npm run typecheck && npm test && npm run gate`。
-- 发布：`npm pack`（会先跑 `prepare` → build），产物进 tarball；git 直装依赖 `prepare` 构建。
-- `tests/fixtures/` 是宿主快照，也不入库；用 `npm run fixture:fetch` 从旧仓库复制。
-
-### 补丁语料
-- `patches/*.json` 原样复制，不重排、不改缩进、不合并条目。
-- 新增/修改补丁只允许：`pattern`、`replace`、`markers`、`optional` 等字段级修改，并同步 `NOTES.md`。
-
-### 版本与提交
-- 分支：`main`；开发分支 `m1-engine`、`m2-store` …
-- Commit：`<type>(<scope>): <subject>`，type ∈ feat/fix/refactor/test/docs/chore。
-- Tag：与宿主版本绑定，如 `v0.2.2-rc.1-next.1`；一个 tag 只对一版宿主负责。
-- 不提交 `node_modules/`、`lib/` 之外的临时文件；`.gitignore` 必须含 `node_modules/`。
-
-### 安全红线
-- 不在仓库里放宿主快照之外的第三方产物；`hosts/` 只放 targetFiles 命中的文件。
-- 不把 prompt 明文放进仓库（沿用旧仓库 `.gitignore` 规则）。
+- **源码 100% TypeScript**：`src/**`、`tests/**` 不允许 `.js/.mjs/.cjs`。
+- `lib/**`、`client.js`、`tests/fixtures/**` 是生成物，不入库。
+- `strict` + `noUncheckedIndexedAccess`；禁止 `any`。
+- ESM 相对导入带 `.js` 后缀。
+- 不吞异常；兜底必须注释原因。
+- 提交前：`npm run typecheck && npm run build && npm test && npm run gate`。
+- Commit：`<type>(<scope>): <subject>`；一个里程碑至少一个 commit。
+- 版本与宿主 1:1：`0.2.2-rc.1` ↔ `v0.2.2-rc.1`；不跨版本声明兼容。
 
 ---
 
-## 5. 里程碑与验收
+## 5. 里程碑
 
-### M0 骨架 + client PoC ✅（已完成）
-验收：见 §2 表格。
+### M1 骨架 + 语料 + status 门禁 ✅
+见 §2。
 
-### M1 补丁引擎骨架 + 语料搬运（下一步）
-1. `patches/` 从旧仓库复制（prompt/code/engine/tools/display-groups/patch.schema.json/NOTES.md）。
-2. `src/engine/types.ts`：`PatchSpec`、`PatchTable`、`ApplyReport`。
-3. `src/engine/load.ts`：读取 4 个表 + display groups，最小形状校验（id 唯一、必填字段）。
-4. `tests/engine-load.test.ts`：计数 = 10/3/8/63，总数 84；id 唯一；字段类型。
-5. `scripts/gate.mjs`：对 `hosts/0.2.2-rc.1` 快照跑 status（可先只读、实现“命中/漂移”判定）。
+### M2 红队数据层 parity（进行中）
+1. 列旧 `store-core.js` 的方法清单，按“核心读写 / 统计评分 / 附件与知识库”分组；
+2. 选 8–10 个高频方法（engagement / target / asset / finding / score）先移植；
+3. 旧实现跑固定输入序列 → `expected-db-dump.json`（不入库，随 fixture）；
+4. 新实现跑同一序列 → 逐字段对比；
+5. 迁移幂等测试。
 
-验收：
-- `npm test` 全绿；
-- `node scripts/gate.mjs --host 0.2.2-rc.1` 输出与旧仓库 `host:verify` 一致（必需 36、失败 0、drift 0）。
+验收：parity 0 diff；`npm test` 全绿。
 
-### M2 store parity（数据层）
-- 把旧 `store-core.js` 的查询/写入逐组移植；同一 SQLite fixture，新旧实现输出逐字段对比。
-- 验收：parity 测试 100% 一致；新增迁移幂等测试。
+### M3 补丁引擎 apply/revert
+- 移植 `applyPatches`、`revertAll`、备份（`.dshpurge.bak`）、原子写；
+- 验收：快照上 apply 后 84 条状态正确；revert 后与快照 sha256 全等；二次 apply `applied=0`。
 
-### M3 UI 迁移（TSX）
-- 先设置页（简单面板），再演练台（资产表/评分/报告）。
-- 验收：3099 页面出现面板，`document.body.dataset.dshPurgeNext === "loaded"`，无 console 报错。
+### M4 提示词注入
+- 移植 prompt-inject 的读写、seed、identity 清洗；
+- 验收：`prompt-inject.md` 内容与旧实现逐字节一致（同输入）。
 
-### M4 字节级安全网
-- `apply → revert` 后与 `hosts/<ver>` 快照 sha256 全等；
-- 二次 apply `applied=0`（幂等）；
-- 门禁接入 CI。
+### M5 红队工具 + API
+- tools 定义与 JSON 输出契约；`POST /redteam/api` 分派；
+- 验收：同一请求序列，新旧响应逐字段一致。
+
+### M6 UI（TSX）
+- 设置页 + 演练台面板；esbuild 打包；
+- 验收：3099 隔离实例面板可用，无 console 报错。
+
+### M7 单通道更新 + 安装
+- 删除 stable/beta 概念：`update.js` 只保留 `master`；
+- 更新源指向本仓库（URL 待上传后填）；
+- `ensure-profile-bundle` 逻辑 TS 化；
+- 验收：从本仓库安装 → 启动 → 更新检查指向本仓库。
+
+### M8 全面 parity 与安全网
+- apply/revert 字节级、幂等、双跑；
+- 工具/API/UI 冒烟；
+- 验收：与旧插件同宿主同操作，结果一致。
+
+### M9 切换
+- 旧仓库冻结；新仓库打 tag `v0.2.2-rc.1`（与宿主同版）。
 
 ---
 
-## 6. 参考代码位置（旧仓库 = 只读真相）
+## 6. 参考代码位置
 
-| 旧仓库路径 | 新仓库目标 | 说明 |
+| 旧路径 | 新目标 | 备注 |
 | --- | --- | --- |
-| `patches/*.json` | `patches/` | 原样复制，语义不动 |
-| `lib/core.js`（补丁表已迁出，引擎在 2000–4800 行） | `src/engine/` | apply/status/backup/revert |
-| `lib/settle-policy.js` | `src/engine/restart-policy.ts` | 重启判定（applied>0 / sealed / promptReady） |
-| `lib/host-clean.js` | `src/engine/host-clean.ts` | `identity` 标记判定（注意 `[completeSection]` 三元误伤） |
+| `lib/core.js` | `src/engine/` | 引擎与匹配判定 |
+| `lib/settle-policy.js` | `src/engine/restart-policy.ts` | applied>0 / sealed / promptReady |
+| `lib/host-clean.js` | `src/engine/host-clean.ts` | identity 标记优先 |
 | `lib/redteam/store-core.js` | `src/redteam/store/` | 5153 行，按 schema/rows/queries/score 拆 |
-| `lib/redteam/schema.js` | `src/redteam/store/schema.ts` | 584 行 DDL + 迁移 |
-| `lib/redteam/score-rules.js` | `src/redteam/store/score.ts` | 871 行评分口径 |
-| `lib/redteam/tools.js` | `src/redteam/tools.ts` | 2154 行，工具 schema/JSON 输出 |
-| `lib/redteam/client.js` | `src/client/`（TSX） | 4219 行 UI，M3 再动 |
-| `build-client.mjs` | `esbuild.config.mjs` | 已替换 |
-| `hosts/0.2.2-rc.1/` | `tests/fixtures/host-0.2.2-rc.1/` | 62 文件 / 3.03 MB；M1 复制或软链 |
-| `scripts/host-verify.mjs` | `scripts/gate.mjs` | 门禁口径：必需补丁 applied/pending 均可，drifted 失败 |
-
-关键行号（旧仓库，仅供定位，改动后以内容为准）：
-- `lib/index.js:2335` `applyShouldRestart` 调用点
-- `lib/index.js:2328` `complete` 判定四要素
-- `lib/restart-web.js` 自重启（EPIPE 修复版本）
-- `lib/net-scope.js:403` `allowCache` 未声明（已知 bug，旧仓库未修）
+| `lib/redteam/schema.js` | `src/redteam/store/schema.ts` | DDL + 迁移 |
+| `lib/redteam/score-rules.js` | `src/redteam/store/score.ts` | 评分口径 |
+| `lib/redteam/tools.js` | `src/redteam/tools.ts` | 工具契约 |
+| `lib/redteam/client.js` | `src/client/`（TSX） | 4219 行 |
+| `lib/update.js` | `src/update/` | **去掉 stable/beta** |
+| `build-client.mjs` | `esbuild.config.ts` | 已替换 |
+| `hosts/0.2.2-rc.1/` | `tests/fixtures/`（不入库） | `npm run fixture:fetch` |
+| `scripts/host-verify.mjs` | `src/tools/gate.ts` | 已移植 |
 
 ---
 
-## 7. 验证流程（每条都要能复现）
+## 7. 验证流程
 
-### 7.0 首次准备（clone 后）
+### 7.0 首次准备
 ```powershell
-npm install                 # devDeps；prepare 会自动 build
-npm run fixture:fetch       # 从 D:\Home\dsh-purge\hosts 复制快照（不入库）
+npm install            # devDeps；prepare 自动 build
+npm run fixture:fetch  # 从旧仓库复制 0.2.2-rc.1 快照（不入库）
 ```
 
-### 7.1 日常（每次改完）
+### 7.1 日常
 ```powershell
 npm run typecheck
 npm run build
-npm test          # 含 loader-sim.test.ts
-npm run gate      # 构建 + 快照门禁
+npm test
+npm run gate
 ```
 
-### 7.2 client 真机检查（隔离实例，不碰 3080）
+### 7.2 client 真机（隔离实例）
 ```powershell
 $env:DSH_HOME = 'D:\Home\_dsh-next'
 node "C:\Users\Administrator\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh\lib\bin.js" `
   next-poc --port 3099 --no-open
-# 从 stdout 取 token，打开对应 URL，控制台执行：
-#   document.body.dataset.dshPurgeNext   → 期望 "loaded"
-```
-插件安装路径：`D:\Home\_dsh-next\profiles\next-poc\node_modules\dsh-purge-next`（手动拷贝 `lib/`、`client.js`、`package.json`、`cordis.patch.yml`）。
-
-### 7.3 门禁（M1 起）
-```powershell
-node scripts/gate.mjs --host 0.2.2-rc.1
-# 期望：必需 36 / 失败 0 / drifted 0
+# 控制台：document.body.dataset.dshPurgeNext → "loaded"
 ```
 
-### 7.4 字节级还原（M4）
-```powershell
-node scripts/revert-check.mjs --host 0.2.2-rc.1
-# 期望：apply→revert 后文件 sha256 与 fixtures 全等
-```
+### 7.3 字节级还原（M3 起）
+apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 
 ---
 
-## 8. 决策记录（ADR 简版）
+## 8. 决策记录
 
 | # | 决策 | 理由 |
 | --- | --- | --- |
-| D1 | 产物与快照不入库 | 主线只留源码与数据；安装走 `prepare`/`npm pack`，快照用 `fixture:fetch` |
-| D2 | client 用 esbuild + banner/footer | 已用真实 DSH 验证（manifest 注册 + `dataset=='loaded'`） |
-| D3 | 零运行时依赖 | 插件装进 profile，减少宿主侧不确定性 |
-| D4 | TS 只覆盖数据层与工具契约 | 补丁锚点/字符串手术的类型收益低 |
-| D5 | 补丁语料原样复制 | 它是 0.2.0-rc.2→0.2.2-rc.1 的版本知识，重写等于重踩坑 |
-| D6 | 版本与宿主 1:1 | 跨版本 pattern 会互相污染，门禁无法定义 |
+| D1 | 产物与快照不入库 | 主线只留源码；安装走 `prepare`/`npm pack` |
+| D2 | client 用 esbuild + banner/footer | 真机验证通过 |
+| D3 | 零运行时依赖 | 减少宿主侧不确定性 |
+| D4 | TS 只覆盖数据层与工具契约 | 锚点/字符串手术收益低 |
+| D5 | 补丁语料原样复制 | 版本知识不可重写 |
+| D6 | 版本与宿主 1:1 | 防跨版本 pattern 污染 |
+| D7 | **取消正式版/测试版双通道** | 用户无此需求；只保留 `master` 一条线，删除 `channel.json`/`beta` ref |
+| D8 | **更新源指向本仓库** | URL 待上传后填入 `src/update/` 配置；在此之前更新检查返回“未配置” |
 
 ---
 
-## 9. 风险与已知坑
+## 9. 待办（跨里程碑）
 
-1. **`name` 必须等于包名**：client 记录按插件名注册，不一致会 404（本次踩过）。
-2. **client 记录失效的表现**：boot HTML 有 id，但 `/plugins/??<id>/client.js` 404；先查 `dsh.client` 与 `exports["./client"]`。
-3. **`host-clean` 的 `[completeSection]`**：三元表达式会误判“inject 被丢弃”，判定要用 identity 标记优先。
-4. **`writeAllowText` 的 `allowCache` 未声明**：旧仓库已知 ReferenceError，移植时不要照抄。
-5. **`rewind.wrapSessionDeriveMessages`**：旧仓库死调用，移植时删除。
-6. **pnpm 12 拦截 build script**：安装插件用 `--ignore-scripts` + 手动 `ensure-profile-bundle`。
-7. **标签/历史**：旧仓库曾重写历史，新项目不要引用旧 commit 的短 sha，只引用 tag。
+- [ ] 上传仓库后填写 URL：`https://github.com/<owner>/dsh-purge-next`（占位，待定）
+- [ ] `src/update/` 只保留单通道逻辑，删除 stable/beta
+- [ ] `ensure-profile-bundle` TS 化
+- [ ] 桌面（desktop）路径是否纳入，M5 后评估
 
 ---
 
-## 10. 接手检查清单（新窗口照做）
+## 10. 风险与已知坑
 
-1. 读 §2「当前状态」，确认阶段。
-2. `git log --oneline -5` 与 §2 是否一致。
-3. 跑 §7.1 四条命令，应全绿。
-4. 若上一阶段未完成，从对应里程碑的“验收”条目继续；不要跳阶段。
-5. 收工前：更新 §2 表格 + 在 §11 追加一条进度记录，然后 commit。
+1. 插件 `name` 必须等于包名，否则 client 404。
+2. `host-clean` 的 `[completeSection]` 三元会误伤，identity 标记优先。
+3. `net-scope.js` 的 `allowCache` 未声明（旧仓库已知 ReferenceError），不要照抄。
+4. `rewind.wrapSessionDeriveMessages` 是死调用，移植时删除。
+5. 旧 `tools.js` 里 `return KB_DISABLED` 之后有大段死代码（`args` 未定义），移植时按现状判断是否保留。
+6. 旧 `schema.js` 迁移里的 `LEGACY_STAGE_MAP` / `SCOPE_SQL` 悬空，移植要补定义或删除。
+7. Windows 下 git 换行：`patches/**` 已 `-text`，fixture 不入库。
 
 ---
 
-## 11. 进度日志（只追加，不改旧条目）
+## 11. 接手检查清单
 
-- 2026-11-08 20:10 — M0 完成：TS 骨架、`lib/`+`client.js` 构建、store 单测 5/5、loader 模拟通过；隔离实例（`_dsh-next` / `next-poc` / 3099）真机验证 `dataset.dshPurgeNext === 'loaded'`。esbuild 方案定为 D2。
-- 2026-11-08 20:10 — 记录已知坑：插件 `name` 与包名不一致会导致 client 404（已修，`src/index.ts` 现在导出 `dsh-purge-next`）。
-- 2026-11-08 20:13 — M1 第一步：`patches/` 原样复制（84 条，10/3/8/63），新增 `src/engine/{types,codec,load}.ts` 与 4 条语料测试。
-- 2026-11-08 20:16 — M1 完成：快照落到 `tests/fixtures/host-0.2.2-rc.1`（62 文件），`expected-status.json` 由旧 core 生成；`src/engine/status.ts` 逐 id 与旧实现一致（0 diff），门禁输出 required 36 / bad 0 / drifted 0；11 tests 全绿。首次提交 d997eb3。
-- 2026-11-08 20:22 — 主线瘦身：`lib/`、`client.js`、`tests/fixtures/` 全部移出版本库（.gitignore），新增 `src/tools/fixture.ts`（`npm run fixture:fetch`）与 `prepare` 构建；清空历史，重建为单一初始提交。
-- 2026-11-08 20:19 — 源码全 TS：`scripts/gate.mjs` → `src/tools/gate.ts`，`tests/loader-sim.mjs` → `tests/loader-sim.test.ts`，`esbuild.config.mjs` → `esbuild.config.ts`（Node 26 原生跑 TS）。仓库里剩下的 `.js` 只有 `lib/**`、`client.js`（产物）与 `tests/fixtures/**`（宿主快照）。12 tests + gate 全绿。
+1. 读 §2；2. `git log --oneline`；3. 跑 §7.1；4. 从当前里程碑的验收项继续；5. 收工更新 §2 与 §12 并提交。
+
+---
+
+## 12. 变更日志（只追加）
+
+- 2026-11-08 20:16 — M1 完成：语料 84 条、status parity 0 diff、gate 36/0/0；首次提交 `d997eb3`。
+- 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
+- 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
+- 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 20:29 — M2 第一片：`src/redteam/store/{meta,engagement}.ts`（slugify/open/list/active），7 条单测；19 tests 全绿。schema 全量与 seed 仍待移植。
+- 2026-11-08 20:30 — 确立全面重构目标；取消 stable/beta 双通道（D7）；更新源指向本仓库（D8，URL 待填）；里程碑扩到 M2–M9。
