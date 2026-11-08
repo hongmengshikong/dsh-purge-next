@@ -53,6 +53,12 @@ npm pack
 dsh plugin --profile web add --ignore-scripts .\dsh-purge-next-0.2.2-rc.1.tgz
 ```
 
+## 安装实测
+
+- `npm pack` → 161.9 KB / 64 文件（含 `lib/`、`client.js`、`patches/`、`docs/`）
+- 解包进隔离 profile 后启动：`/dsh-purge-next/status` 200，`/patches` 84 行
+- `ensureProfileBundle`：首次补 insert（`insertChanged=true`），第二次调用 `bundlesChanged=false` / `insertChanged=false`
+
 ## 已知边界
 
 - 仅支持 `0.2.2-rc.1`；换宿主需重跑 `gen-host-paths` / `fixture:fetch` / `gate`
