@@ -279,6 +279,74 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			});
 		}
 
+		if (op === "discoveryTimeline") {
+			return withDb(root, id, (db) => {
+				const limit = Math.min(Number(req.limit) || 50, 500);
+				const days = db.prepare(`SELECT substr(COALESCE(discovered_at, first_seen, ''), 1, 10) AS day,
+				  COUNT(*) AS assets,
+				  SUM(CASE WHEN COALESCE(scope, (${SCOPE_SQL})) = 'internal' THEN 1 ELSE 0 END) AS internal,
+				  SUM(CASE WHEN COALESCE(scope, (${SCOPE_SQL})) = 'external' THEN 1 ELSE 0 END) AS external
+				  FROM asset GROUP BY day ORDER BY day DESC`).all() as { day?: string }[];
+				const recent = db.prepare(`SELECT id, ip, segment_cidr, state, primary_name, discovered_at, first_seen, last_seen,
+				  COALESCE(scope, (${SCOPE_SQL})) AS scope, priority,
+				  (SELECT COUNT(*) FROM port p WHERE p.asset_id = asset.id AND p.state = 'open') AS open_ports
+				  FROM asset ORDER BY COALESCE(discovered_at, first_seen, '') DESC, id DESC LIMIT ?`).all(limit);
+				const span = db.prepare("SELECT MIN(COALESCE(discovered_at, first_seen)) AS first, MAX(COALESCE(discovered_at, first_seen)) AS last, COUNT(*) AS total FROM asset").get() as Record<string, unknown>;
+				return { ok: true, days: days.map((row) => ({ ...row, day: row.day || "(未知时间)" })), recent, span };
+			});
+		}
+
+		if (op === "domains") {
+			return withDb(root, id, (db) => {
+				const where = ["kind IN ('domain','hostname')"];
+				const args: (string | number | null)[] = [];
+				if (typeof req.q === "string" && req.q) {
+					where.push("name LIKE ?");
+					args.push(`%${String(req.q)}%`);
+				}
+				const items = db.prepare(`SELECT name, COUNT(DISTINCT asset_id) AS assets, MAX(last_seen) AS last_seen
+				  FROM asset_name WHERE ${where.join(" AND ")} GROUP BY name ORDER BY assets DESC, name LIMIT ?`).all(...args, Math.min(Number(req.limit) || 200, 1000));
+				return { ok: true, items };
+			});
+		}
+
+		if (op === "web") {
+			return withDb(root, id, (db) => {
+				const where = ["(p.url IS NOT NULL OR p.title IS NOT NULL)"];
+				const args: (string | number | null)[] = [];
+				if (typeof req.q === "string" && req.q) {
+					where.push("(p.url LIKE ? OR p.title LIKE ?)");
+					args.push(`%${String(req.q)}%`, `%${String(req.q)}%`);
+				}
+				const items = db.prepare(`SELECT p.id, p.asset_id, a.ip, p.port, p.proto, p.url, p.title, p.banner
+				  FROM port p JOIN asset a ON a.id = p.asset_id WHERE ${where.join(" AND ")} ORDER BY p.id DESC LIMIT ?`)
+					.all(...args, Math.min(Number(req.limit) || 200, 1000));
+				return { ok: true, items };
+			});
+		}
+
+		if (op === "assessAsset") {
+			return withDb(root, id, (db) => {
+				const patch = (req.assess ?? req) as Record<string, unknown>;
+				const assetId = Number(patch.id ?? patch.asset_id);
+				if (!assetId) return { ok: false, error: "asset id 必填" };
+				db.prepare("UPDATE asset SET priority = COALESCE(?, priority), potential = COALESCE(?, potential), assess_reason = COALESCE(?, assess_reason), assessed_at = ?, assessed_by = COALESCE(?, assessed_by) WHERE id = ?")
+					.run(sqlv(patch.priority), sqlv(patch.potential), sqlv(patch.assess_reason), new Date().toISOString(), sqlv(patch.assessed_by), assetId);
+				return { ok: true };
+			});
+		}
+
+		if (op === "assetTest") {
+			return withDb(root, id, (db) => {
+				const patch = (req.test ?? req) as Record<string, unknown>;
+				const assetId = Number(patch.id ?? patch.asset_id);
+				if (!assetId) return { ok: false, error: "asset id 必填" };
+				db.prepare("UPDATE asset SET test_status = COALESCE(?, test_status), test_notes = COALESCE(?, test_notes), test_surface = COALESCE(?, test_surface), test_updated_at = ?, test_updated_by = COALESCE(?, test_updated_by) WHERE id = ?")
+					.run(sqlv(patch.status), sqlv(patch.notes), sqlv(patch.surface), new Date().toISOString(), sqlv(patch.by), assetId);
+				return { ok: true };
+			});
+		}
+
 		if (op === "graph") {
 			return withDb(root, id, (db) => {
 				const nodes: { id: string; kind: string; label: string; meta: Record<string, unknown> }[] = [];

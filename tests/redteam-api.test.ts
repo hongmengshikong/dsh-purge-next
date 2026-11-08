@@ -104,6 +104,29 @@ describe("redteam api 分派", () => {
 		expect((dispatch(root, { op: "webshells", engagement: "ev" }).items as { status: string }[])[0]?.status).toBe("offline");
 	});
 
+	it("discoveryTimeline / domains / web / assess / assetTest", () => {
+		const root = tempRoot();
+		dispatch(root, { op: "openEngagement", name: "tl", scope: [] });
+		dispatch(root, { op: "ingest", engagement: "tl", bundle: { assets: [{ ip: "10.0.0.5", names: [{ name: "portal.local" }], ports: [{ port: 443, url: "https://10.0.0.5/", title: "Portal" }] }] } });
+
+		const timeline = dispatch(root, { op: "discoveryTimeline", engagement: "tl" }) as { recent: unknown[]; days: unknown[] };
+		expect(timeline.recent).toHaveLength(1);
+		expect(timeline.days.length).toBeGreaterThan(0);
+
+		const domains = dispatch(root, { op: "domains", engagement: "tl" }).items as { name: string }[];
+		expect(domains.map((item) => item.name)).toContain("portal.local");
+
+		const web = dispatch(root, { op: "web", engagement: "tl" }).items as { url: string }[];
+		expect(web[0]?.url).toBe("https://10.0.0.5/");
+
+		dispatch(root, { op: "assessAsset", engagement: "tl", assess: { id: 1, priority: "high", potential: "high", assess_reason: "OA" } });
+		const stats = dispatch(root, { op: "asset", engagement: "tl", id: 1 }).asset as { priority: string };
+		expect(stats.priority).toBe("high");
+
+		dispatch(root, { op: "assetTest", engagement: "tl", test: { id: 1, status: "testing", notes: "in progress" } });
+		expect((dispatch(root, { op: "testStats", engagement: "tl" }).stats as Record<string, number>).testing).toBe(1);
+	});
+
 	it("graph / httpEvidence / attackFiles", () => {
 		const root = tempRoot();
 		dispatch(root, { op: "openEngagement", name: "g", scope: [] });

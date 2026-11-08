@@ -273,6 +273,84 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 				return json(dispatch(root, { op: "addAttackFile", engagement: id, file: args }));
 			},
 		},
+		{
+			name: "redteam_asset_get",
+			description: "取单个资产详情（含端口与服务）。",
+			parameters: { engagement: { type: "string" }, id: { type: "number", required: true } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "asset", engagement: id, id: args.id }));
+			},
+		},
+		{
+			name: "redteam_asset_stats",
+			description: "资产/端口/漏洞/凭据等计数。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "stats", engagement: id }));
+			},
+		},
+		{
+			name: "redteam_asset_assess",
+			description: "给资产打易打性/潜力与理由。",
+			parameters: {
+				engagement: { type: "string" },
+				id: { type: "number", required: true },
+				priority: { type: "string", enum: ["high", "medium", "low"] },
+				potential: { type: "string" },
+				assess_reason: { type: "string" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "assessAsset", engagement: id, assess: args }));
+			},
+		},
+		{
+			name: "redteam_score_list",
+			description: "得分看板（summary + 每个得分点的计数）。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				const board = dispatch(root, { op: "scores", engagement: id }) as { summary?: unknown; items?: { code: string; counted: number; earned: number; capped: number }[] };
+				return json({ ok: true, summary: board.summary, items: (board.items ?? []).map((item) => ({ code: item.code, counted: item.counted, earned: item.earned, capped: item.capped })) });
+			},
+		},
+		{
+			name: "redteam_score_hit",
+			description: "记录一次得分（code + evidence 必填）。",
+			parameters: {
+				engagement: { type: "string" },
+				code: { type: "string", required: true },
+				evidence: { type: "string", required: true },
+				target: { type: "string" },
+				asset_id: { type: "number" },
+				points: { type: "number" },
+			},
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "addScoreHit", engagement: id, hit: args }));
+			},
+		},
+		{
+			name: "redteam_score_report",
+			description: "计分总账（summary + 已得/未得条目）。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				const report = dispatch(root, { op: "scoreReport", engagement: id }) as { summary?: unknown; achieved?: unknown[]; missing?: unknown[] };
+				return json({ ok: true, summary: report.summary, achieved: report.achieved, missing: report.missing });
+			},
+		},
+		{
+			name: "redteam_report",
+			description: "生成 Markdown 成果报告。",
+			parameters: { engagement: { type: "string" } },
+			execute(args, exec) {
+				const id = resolveEngagement(root, exec, args.engagement) ?? boundEngagement(exec);
+				return json(dispatch(root, { op: "report", engagement: id }));
+			},
+		},
 	];
 }
 

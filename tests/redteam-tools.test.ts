@@ -31,6 +31,13 @@ describe("redteam tools", () => {
 			"redteam_asset_graph",
 			"redteam_http_evidence_add",
 			"redteam_attack_file_add",
+			"redteam_asset_get",
+			"redteam_asset_stats",
+			"redteam_asset_assess",
+			"redteam_score_list",
+			"redteam_score_hit",
+			"redteam_score_report",
+			"redteam_report",
 		]);
 
 		const exec = { sessionId: "s-tools" };
