@@ -1,4 +1,4 @@
-# dsh-purge-next 0.2.2-rc.1 发布说明
+# dsh-purge-next 0.2.2-rc.2 发布说明（满血版）
 
 > 与宿主 `0.2.2-rc.1` **1:1 钉死**。只支持这一版宿主。
 
@@ -31,13 +31,25 @@
 - 未配置仓库时 `/dsh-purge-next/update` 返回 `unconfigured`；配置后生成 `<repo>/archive/refs/heads/master.tar.gz`
 - `ensureProfileBundle`：bundles + `cordis.patch.yml` insert 幂等写入
 
+## 满血能力（相对 0.2.2-rc.1）
+
+- **POC 知识库**：`knowledge.db`（schema/FTS/老库补列迁移）、8 个 op、6 个工具、正文落盘 `pocs/<code>/`
+- **nuclei 模板检索**：平台配置目录优先、7 天索引缓存、`templateSearch/Stats`
+- **技能库**：redteam + official 双目录扫描、frontmatter 解析、读写删、面板新建
+- **环境适配**：`platform-config` 工具解析/整包分配/Kali 探测、3 个 op、面板页
+- **证据账本**：语义哈希、record/verify/upgrade/未闭环计数、5 个工具
+- **未解决问题**：UnknownRegistry 3 个工具
+- **并发闸门**：`redteam_agent_slot` + settings 三级生效
+- **会话实测**：probeSessions（HTTP/TCP）
+- **UI**：五页签（清洗 / 演练台 / 技能库 / 知识库 / 环境适配）
+
 ## 验证（本版实测）
 
 ```
 npm run typecheck     通过
 npm test              25 文件 / 98 条全过
 npm run gate          required 36 / bad 0 / drifted 0
-npm run audit:parity  tools 53/64、ops 63/72（余项均为 POC/平台/模板）
+npm run audit:parity  tools 65/64（缺 0）、ops 91/72（缺 0）
 真机 apply→revert     93 次写入 / 57 文件还原，sha256 回到基线 dbae65a3…
 ```
 

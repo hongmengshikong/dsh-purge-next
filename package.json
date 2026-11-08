@@ -1,6 +1,6 @@
 {
   "name": "dsh-purge-next",
-  "version": "0.2.2-rc.1",
+  "version": "0.2.2-rc.2",
   "private": true,
   "description": "dsh-purge 重写骨架：TS 源码 + 构建产物入库 + 零运行时依赖",
   "type": "module",
