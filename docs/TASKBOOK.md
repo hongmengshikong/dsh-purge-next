@@ -81,7 +81,7 @@
 | M3 revert | ✅ | apply→revert 后与快照 sha256 全等，无 bak 残留 |
 | M3 宿主入口 | ✅ | `hostPaths/hostStatus/hostApply/hostRevert`；status→apply→revert 全链路在真实 node_modules 布局上通过 |
 | M3 遗留语义 | ✅ | #42 折叠/重写、YAML persona 清理、原文件缺失从 bak 自愈（均与旧实现对照） |
-| M3 stale bak 刷新 | ⬜ | 宿主升级后旧 bak 的刷新策略（旧 refreshStaleBaksForUpgrade） |
+| M3 stale bak 刷新 | ✅ | bak 是旧补丁产物、原文已换官方新版时，用当前原文刷新 bak |
 | M4 提示词注入 | ✅ | 默认正文入库；seed/保留用户稿/刷新旧默认与旧 core 一致；host-clean 判定对齐 |
 | M5 服务骨架 | ✅ | 插件注册 `/dsh-purge-next/{status,apply,revert}`；启动 seed；**真实 3099 实例 status 返回 applied 69 / required 36 / drifted 0** |
 | M5 API 分派 | ✅ | `redteam/api.ts`：bootstrap/open/activate/ingest/addAsset/assets/asset/stats/scores/addScoreHit；与旧 dispatch 对照 summary 一致 |
@@ -90,6 +90,7 @@
 | M5 读路径 | ✅ | vulns/addVuln、credentials/addCredential、tunnels/addTunnel、chain/addChainStep；工具扩到 10 个 |
 | M6 UI 骨架 | ✅ | client 注册 `shell.overlay` Dock：status 计数 + 应用/还原按钮；loader-sim 校验 slot 注册 |
 | M6 真机 | ✅ | 3099 实例：client bundle 4269 B（含 dock/slot），`/dsh-purge-next/status` 200，`POST /redteam/api` bootstrap 200 |
+| M6 提示词编辑 | ✅ | `/dsh-purge-next/prompt` GET/POST + Dock 文本框；bundle 8556 B |
 | M6 Dock 升级 | ✅ | 显示靶标列表/当前靶标/得分概览，可切换靶标；bundle 6932 B，纯逻辑单测 |
 | M7 更新骨架 | ✅ | 单通道 master；仓库未配置时 unconfigured，配置后生成 master tarball URL |
 | M7 安装补丁 | ✅ | `ensureProfileBundle`：bundles + cordis insert 幂等写入 |
@@ -335,6 +336,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 21:14 — M3/M6：stale bak 刷新（原文无 marker、bak 有 → 用当前原文覆盖 bak）；提示词编辑路由与 Dock 文本框；bundle 8556 B。97 tests 全绿。
 - 2026-11-08 21:13 — M5 工具收口：+8（asset_test/timeline、domain_index、web_list、shot_delete、score_point_save、report_targets、chain），工具 42/64；§9.2/§9.3 写清剩余分类与最终 parity 清单。96 tests 全绿。
 - 2026-11-08 21:12 — M5 余项：import 别名、saveScorePoint/deleteScorePoint（内置点拒改拒删）、reportTargets；工具 +6（shot_list/add、credential_list、webshell_list/add、attack_file_list）。ops 60、tools 34；96 tests 全绿。
 - 2026-11-08 21:11 — M5 P1 三：sessions / consoleDigest / snapshot / attackGraph / updateVuln / updateTunnel / assetLink；工具 +5。ops 56、tools 28；95 tests 全绿。

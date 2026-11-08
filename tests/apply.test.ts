@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { applyPatchesToRoot, applyReplacementsToText, rollupPatchStatus } from "../src/engine/apply.js";
+import { applyPatchesToRoot, applyReplacementsToText, refreshStaleBaks, rollupPatchStatus } from "../src/engine/apply.js";
 import { revertRoot } from "../src/engine/revert.js";
 import { loadPatchTables } from "../src/engine/load.js";
 import { appliesOnWeb, computeStatus } from "../src/engine/status.js";
@@ -112,6 +112,20 @@ describe.skipIf(!HAS_FIXTURE)("apply", () => {
 
 		const leftovers = rels.filter((rel) => existsSync(join(copy, rel + ".dshpurge.bak")));
 		expect(leftovers).toEqual([]);
+	});
+
+	it("stale bak 刷新：宿主已换官方新版时用当前原文覆盖 bak", () => {
+		const dir = mkdtempSync(join(tmpdir(), "dsh-purge-stale-"));
+		dirs.push(dir);
+		const rel = "dsh-x/lib/index.js";
+		const fp = join(dir, rel);
+		mkdirSync(join(dir, "dsh-x", "lib"), { recursive: true });
+		writeFileSync(fp, "official new content", "utf8");
+		writeFileSync(fp + ".dshpurge.bak", "patched [dsh-purge] identity stripped", "utf8");
+		const tables = loadPatchTables(join(ROOT, "patches"));
+		const refreshed = refreshStaleBaks(dir, { k: [rel] }, tables);
+		expect(refreshed).toHaveLength(1);
+		expect(readFileSync(fp + ".dshpurge.bak", "utf8")).toBe("official new content");
 	});
 
 	it("rollupPatchStatus 关键分支", () => {

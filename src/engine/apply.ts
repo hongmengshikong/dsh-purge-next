@@ -189,6 +189,44 @@ export function rollupPatchStatus(input: RollupInput): string {
 const LAYOUT_SOFT_IDS = new Set([4, 25, 26, 5, 11, 12]);
 const isLayoutSoft = (patch: CompiledPatch): boolean => LAYOUT_SOFT_IDS.has(patch.id) || patch.softSettle === true;
 
+/**
+ * 宿主升级后 self-heal：原文件换成官方新版、.bak 还停在旧补丁产物。
+ * 判据：bak 里出现补丁 marker/替换文本特征，而当前原文一个都没有 → 用当前原文刷新 bak。
+ */
+export function refreshStaleBaks(root: string, paths: Record<string, string[]>, tables: PatchTables): string[] {
+	const refreshed: string[] = [];
+	const markers = new Set<string>();
+	for (const patch of tables.all) {
+		for (const marker of patch.markers ?? []) markers.add(marker);
+		if (typeof patch.marker === "string" && patch.marker) markers.add(patch.marker);
+	}
+	if (markers.size === 0) return refreshed;
+
+	for (const rels of Object.values(paths)) {
+		for (const rel of rels) {
+			const fp = join(root, rel);
+			const bak = `${fp}.dshpurge.bak`;
+			if (!existsSync(fp) || !existsSync(bak)) continue;
+			let current: string;
+			let backup: string;
+			try {
+				current = readFileSync(fp, "utf8");
+				backup = readFileSync(bak, "utf8");
+			} catch {
+				continue;
+			}
+			if (current === backup) continue;
+			const backupLooksPatched = [...markers].some((marker) => backup.includes(marker));
+			const currentHasMarker = [...markers].some((marker) => current.includes(marker));
+			if (backupLooksPatched && !currentHasMarker) {
+				copyFileSync(fp, bak);
+				refreshed.push(bak);
+			}
+		}
+	}
+	return refreshed;
+}
+
 export interface ApplyFileResult {
 	applied: number;
 	already: number;
@@ -216,6 +254,8 @@ export function applyPatchesToRoot(
 	options: ApplyOptions = {},
 ): { report: { id: number; name: string; status: string; applied: number; already: number; drifted: number }[]; changedFiles: string[] } {
 	const write = options.write !== false;
+	const refreshed = refreshStaleBaks(root, paths, tables);
+	void refreshed;
 	const report: { id: number; name: string; status: string; applied: number; already: number; drifted: number }[] = [];
 	const changedFiles: string[] = [];
 

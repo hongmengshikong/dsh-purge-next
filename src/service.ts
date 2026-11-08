@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { hostApply, hostRevert, hostStatus, SUPPORTED_HOSTS, type HostApplyResult, type HostStatus } from "./engine/host.js";
 import { loadPatchTables } from "./engine/load.js";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
-import { seedPromptInjectAtBoot } from "./prompt/inject.js";
+import { seedPromptInjectAtBoot, readPromptInjectFile, saveOverrideContent, hashOverride, findOverrideFile } from "./prompt/inject.js";
 import { describeUpdate, updateStatus, updateTarballUrl } from "./update/check.js";
 import type { PatchTables } from "./engine/types.js";
 
@@ -163,4 +163,22 @@ export function updatePayload(): UpdatePayload {
 		tarball_url: updateTarballUrl(),
 		note: describeUpdate(status),
 	};
+}
+
+export interface PromptPayload {
+	ok: boolean;
+	path: string;
+	content: string;
+	hash: string;
+}
+
+export function readPromptPayload(dshHome: string): PromptPayload {
+	const content = readPromptInjectFile(dshHome);
+	return { ok: true, path: findOverrideFile(dshHome), content, hash: hashOverride(content) };
+}
+
+export function savePromptPayload(dshHome: string, content: string): PromptPayload & { saved: boolean } {
+	saveOverrideContent(dshHome, content);
+	const next = readPromptInjectFile(dshHome);
+	return { ok: true, saved: true, path: findOverrideFile(dshHome), content: next, hash: hashOverride(next) };
 }

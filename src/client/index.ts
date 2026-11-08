@@ -66,6 +66,7 @@ export function Dock(): unknown {
 	const [boot, setBoot] = useState<BootstrapPayload | null>(null);
 	const [score, setScore] = useState<ScorePayload | null>(null);
 	const [update, setUpdate] = useState<UpdatePayload | null>(null);
+	const [promptText, setPromptText] = useState("");
 	const [busy, setBusy] = useState(false);
 
 	const load = useCallback(async () => {
@@ -78,6 +79,12 @@ export function Dock(): unknown {
 			setStatus(nextStatus);
 			setBoot(nextBoot);
 			setUpdate(nextUpdate);
+			try {
+				const prompt = await getJson<{ content?: string }>("/dsh-purge-next/prompt");
+				setPromptText(prompt.content ?? "");
+			} catch {
+				setPromptText("");
+			}
 			const current = nextBoot.current;
 			if (current) setScore(await postApi<ScorePayload>({ op: "scores", engagement: current }));
 			else setScore(null);
@@ -126,6 +133,30 @@ export function Dock(): unknown {
 		h("div", { style: styles.muted }, formatBootstrap(boot)),
 		h("div", { style: styles.muted }, formatScore(score)),
 		h("div", { style: styles.muted }, formatUpdate(update)),
+		h("textarea", {
+			value: promptText,
+			onChange: (event: { target: { value: string } }) => setPromptText(event.target.value),
+			placeholder: "prompt-inject.md",
+			style: { width: "100%", height: 64, fontSize: 11, marginTop: 4, fontFamily: "monospace" },
+		}),
+		h(
+			"div",
+			{ style: styles.row },
+			h(
+				"button",
+				{
+					type: "button",
+					disabled: busy,
+					onClick: () => {
+						setBusy(true);
+						void getJson("/dsh-purge-next/prompt", { method: "POST", body: JSON.stringify({ content: promptText }) }).finally(() => setBusy(false));
+					},
+					style: styles.button,
+				},
+				"保存提示词",
+			),
+			h("button", { type: "button", disabled: busy, onClick: () => void load(), style: styles.button }, "重载"),
+		),
 		engagements.length > 0
 			? h(
 					"div",
