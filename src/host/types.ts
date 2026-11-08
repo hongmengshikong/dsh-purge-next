@@ -26,6 +26,8 @@ export interface PluginCtx {
 	get<T = unknown>(name: string): T | undefined;
 	/** 提供插件自身服务 */
 	provide(name: string, value: unknown): void;
+	/** cordis 式按需注入：等服务出现后回调（旧插件的 webServer 路由就是这么挂的） */
+	inject?(names: string[], callback: (host: { webServer: WebServerRegistrar; effect?: (fn: () => unknown) => unknown }) => void): void;
 	/** 工具注册（宿主注入在 tools 服务上，这里只描述最小面） */
 	readonly tools?: {
 		register(def: ToolDef): Disposable;
@@ -36,6 +38,10 @@ export interface PluginCtx {
 	readonly webServer?: {
 		register(route: { kind: "exact" | "prefix"; path: string; handler: (req: unknown, res: unknown) => unknown }): Disposable;
 	};
+}
+
+export interface WebServerRegistrar {
+	register(route: { kind: "exact" | "prefix"; path: string; handler: (req: unknown, res: unknown) => unknown }, label?: string): unknown;
 }
 
 export interface ToolDef {

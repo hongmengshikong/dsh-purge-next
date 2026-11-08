@@ -17,9 +17,7 @@ interface HttpResponse {
 	end?(body?: string): void;
 }
 
-interface RouteRegistrar {
-	register(route: { kind: "exact" | "prefix"; path: string; handler: (req: unknown, res: unknown) => unknown }): unknown;
-}
+type RouteRegistrar = import("./host/types.js").WebServerRegistrar;
 
 function send(res: unknown, code: number, body: unknown): void {
 	const response = res as HttpResponse;
@@ -37,40 +35,49 @@ export function apply(ctx: PluginCtx): void {
 	if (seed.ok) ctx.logger.info(`[dsh-purge-next] prompt-inject: ${seed.action}`);
 	else ctx.logger.warn(`[dsh-purge-next] prompt-inject seed failed: ${seed.error ?? seed.action}`);
 
+	const context = () => loadContext({ aiBase: findAiBase(), dshHome: findDshHome() });
+
+	const registerRoutes = (server: RouteRegistrar): void => {
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/status",
+			handler: (_req, res) => {
+				send(res, 200, statusPayload(context()));
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/apply",
+			handler: (_req, res) => {
+				const payload = applyPayload(context());
+				send(res, payload.ok ? 200 : 500, payload);
+				return undefined;
+			},
+		});
+		server.register({
+			kind: "exact",
+			path: "/dsh-purge-next/revert",
+			handler: (_req, res) => {
+				const payload = revertPayload(context());
+				send(res, payload.ok ? 200 : 500, payload);
+				return undefined;
+			},
+		});
+	};
+
+	if (typeof ctx.inject === "function") {
+		ctx.inject(["webServer"], (host) => {
+			if (host.webServer) registerRoutes(host.webServer);
+		});
+		return;
+	}
 	const server = ctx.get<RouteRegistrar>("webServer");
 	if (!server || typeof server.register !== "function") {
 		ctx.logger.warn("[dsh-purge-next] webServer 不可用：status/apply/revert 路由未注册");
 		return;
 	}
-
-	const context = () => loadContext({ aiBase: findAiBase(), dshHome: findDshHome() });
-
-	server.register({
-		kind: "exact",
-		path: "/dsh-purge-next/status",
-		handler: (_req, res) => {
-			send(res, 200, statusPayload(context()));
-			return undefined;
-		},
-	});
-	server.register({
-		kind: "exact",
-		path: "/dsh-purge-next/apply",
-		handler: (_req, res) => {
-			const payload = applyPayload(context());
-			send(res, payload.ok ? 200 : 500, payload);
-			return undefined;
-		},
-	});
-	server.register({
-		kind: "exact",
-		path: "/dsh-purge-next/revert",
-		handler: (_req, res) => {
-			const payload = revertPayload(context());
-			send(res, payload.ok ? 200 : 500, payload);
-			return undefined;
-		},
-	});
+	registerRoutes(server);
 }
 
 export default { name, inject, apply };

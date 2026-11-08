@@ -83,7 +83,7 @@
 | M3 遗留语义 | ✅ | #42 折叠/重写、YAML persona 清理、原文件缺失从 bak 自愈（均与旧实现对照） |
 | M3 stale bak 刷新 | ⬜ | 宿主升级后旧 bak 的刷新策略（旧 refreshStaleBaksForUpgrade） |
 | M4 提示词注入 | ✅ | 默认正文入库；seed/保留用户稿/刷新旧默认与旧 core 一致；host-clean 判定对齐 |
-| M5 服务骨架 | ✅ | 插件注册 `/dsh-purge-next/{status,apply,revert}`；启动 seed；payload 在快照副本上验证 |
+| M5 服务骨架 | ✅ | 插件注册 `/dsh-purge-next/{status,apply,revert}`；启动 seed；**真实 3099 实例 status 返回 applied 69 / required 36 / drifted 0** |
 
 ---
 
@@ -267,6 +267,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 20:52 — 真机冒烟：`ctx.inject(["webServer"])` 注册路由（`get("webServer")` 在 cordis 下拿不到服务）；隔离实例 3099 上 `GET /dsh-purge-next/status` 返回 69 applied / 36 required / 0 drifted，启动同时 seed 了 prompt-inject.md。
 - 2026-11-08 20:49 — M5 服务骨架：`service.ts`（status/apply/revert/seed payload）、`engine/host-discovery.ts`（env/argv/cwd 发现 aiBase）、插件入口注册三条路由并启动 seed；service 与 fake-ctx 测试通过（status 36/0/0、apply>40、revert>40）。70 tests 全绿。
 - 2026-11-08 20:48 — M4 提示词：`prompt/prompt-data.ts`（内置默认 25 KB，hash 与旧槽一致）、`prompt/inject.ts`（seed/install/keep 用户稿/state）、`engine/host-clean.ts`；与旧 seedPromptInjectAtBoot 在空目录/用户稿/旧默认/当前默认四种场景 action、文件字节、state.hash 全一致。66 tests 全绿。
 - 2026-11-08 20:46 — M3 收尾：`engine/legacy.ts`（#42 legacyApplyPath 折叠/重写）、`engine/yaml.ts`（persona 折叠块清理）、`restoreMissingOriginals`；与旧 core 函数对照一致；host 测试新增「删文件后自愈」。59 tests 全绿。
