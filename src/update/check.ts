@@ -38,7 +38,7 @@ export interface UpdateCandidate {
 }
 
 /**
- * 构造单通道更新地址：`<repo>/archive/refs/heads/master.tar.gz`。
+ * 构造单通道更新地址：`<repo>/archive/refs/heads/dist.tar.gz`（dist 为构建产物分支）。
  * 未配置仓库时返回 null（调用方据此显示“未配置更新源”）。
  */
 export function updateTarballFor(url: string): string | null {
