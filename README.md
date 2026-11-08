@@ -21,8 +21,8 @@ npm run gate           # required 36 / bad 0 / drifted 0
 
 - 补丁引擎：status / apply / revert（`.dshpurge.bak` 备份、字节级还原、幂等、stale bak 刷新）
 - 提示词：启动 seed `$DSH_HOME/prompt-inject.md`、保留用户稿、`/dsh-purge-next/prompt` 读写
-- 红队演练台：`/redteam/api`（60 个 op）、42 个 `redteam_*` 工具
-- 浮层 UI：清洗（状态表/应用/还原/提示词）与演练台（靶标/资产/得分）
+- 红队演练台：`/redteam/api`（60 个 op）、65 个 `redteam_*` 工具
+- 浮层 UI：清洗 / 演练台 / 技能库 / 知识库 / 环境适配 五页签
 
 ## 更新
 
