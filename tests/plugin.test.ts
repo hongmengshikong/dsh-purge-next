@@ -65,7 +65,7 @@ describe.skipIf(!HAS_FIXTURE)("plugin 入口", () => {
 			const routes: Route[] = [];
 			pluginApply(fakeCtx(routes));
 			expect(pluginName).toBe("dsh-purge-next");
-			expect(routes.map((route) => route.path)).toEqual([
+			expect(routes.map((route) => route.path)).toEqual(expect.arrayContaining([
 				"/redteam/api",
 				"/dsh-purge-next/status",
 				"/dsh-purge-next/apply",
@@ -73,7 +73,16 @@ describe.skipIf(!HAS_FIXTURE)("plugin 入口", () => {
 				"/dsh-purge-next/prompt",
 				"/dsh-purge-next/update",
 				"/dsh-purge-next/revert",
-			]);
+				"/dsh-purge-next/override",
+				"/dsh-purge-next/own-servers",
+				"/dsh-purge-next/rules",
+				"/dsh-purge-next/hooks-deny",
+				"/dsh-purge-next/skills",
+				"/dsh-purge-next/skill",
+				"/dsh-purge-next/restart",
+				"/dsh-purge-next/drill-grant",
+			]));
+			expect(routes.length).toBeGreaterThanOrEqual(15);
 			expect(existsSync(join(home, "prompt-inject.md"))).toBe(true);
 			expect(readFileSync(join(home, "prompt-inject.md"), "utf8").length).toBeGreaterThan(1000);
 

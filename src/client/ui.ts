@@ -212,3 +212,46 @@ export function Table(props: { head: string[]; rows: unknown[][] }): unknown {
 		h("tbody", null, ...props.rows.map((row, index) => h("tr", { key: index }, ...row.map((cell, cellIndex) => h("td", { key: cellIndex }, cell))))),
 	);
 }
+
+export function Input(props: { value: string; onChange: (value: string) => void; placeholder?: string; type?: string; style?: Record<string, unknown> }): unknown {
+	return h("input", {
+		className: "dshp-ui-input",
+		type: props.type ?? "text",
+		value: props.value,
+		placeholder: props.placeholder,
+		style: props.style,
+		onChange: (event: { target: { value: string } }) => props.onChange(event.target.value),
+	});
+}
+
+export function TextArea(props: { value: string; onChange: (value: string) => void; placeholder?: string; rows?: number; style?: Record<string, unknown> }): unknown {
+	return h("textarea", {
+		className: "dshp-ui-area",
+		value: props.value,
+		placeholder: props.placeholder,
+		rows: props.rows ?? 6,
+		style: props.style,
+		onChange: (event: { target: { value: string } }) => props.onChange(event.target.value),
+	});
+}
+
+export function Select(props: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[]; style?: Record<string, unknown> }): unknown {
+	return h("select", {
+		className: "dshp-ui-input",
+		value: props.value,
+		style: props.style,
+		onChange: (event: { target: { value: string } }) => props.onChange(event.target.value),
+	}, ...props.options.map((option) => h("option", { key: option.value, value: option.value }, option.label)));
+}
+
+export function Toolbar(props: { children?: unknown }): unknown {
+	return h("div", { className: "dshp-ui-row" }, props.children);
+}
+
+export function Muted(props: { children?: unknown }): unknown {
+	return h("div", { className: "dshp-ui-muted" }, props.children);
+}
+
+export function Empty(props: { children?: unknown }): unknown {
+	return h("div", { className: "dshp-ui-empty" }, props.children ?? "暂无数据");
+}
