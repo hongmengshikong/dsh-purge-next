@@ -352,6 +352,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-09 06:55+08 — UI 返工：面板可拖拽（pointer capture + localStorage 位置记忆 + 重置/收起）、深色卡片样式；随包 23 技能启动安装（首次 23、二次 skipped）、导入/体检 API 与 UI；`full.1` 版本对齐宿主。bundle 32258 B。
 - 2026-11-09 06:16+08 — 远端闭环：从 GitHub dist 下载 203.4 KB / 74 文件装入干净 profile（version 0.2.2-rc.2）→ status 200、patches 84、skillCatalog/pocSave/pocSearch/platformConfigGet 全部可用、bundle 24596 B 含三页签 → apply 93/69 applied/36 required/0 drifted → revert 57 → sha256 `dbae65a3…` 回基线。满血目标达成。
 - 2026-11-09 06:14+08 — 满血验收：版本 0.2.2-rc.2；tarball 188.9 KB/73 文件装入隔离 profile；status 200；skillCatalog/pocSearch/platformConfigGet 正常；bundle 24596 B 含三新页签；真机 apply 93→69 applied/36 required/0 drifted→revert 57→sha256 回基线 dbae65a3。
 - 2026-11-09 06:10+08 — UI 深度：技能页新建模板、知识库归类/已验证筛选。bundle 24525 B；119 tests。

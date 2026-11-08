@@ -1,4 +1,5 @@
 import type { PluginCtx } from "./host/types.js";
+import { join } from "node:path";
 import { findAiBase, findDshHome } from "./engine/host-discovery.js";
 import { applyPayload, loadContext, patchesPayload, readPromptPayload, revertPayload, savePromptPayload, seedPayload, statusPayload, updatePayload } from "./service.js";
 import { installBundledSkills } from "./redteam/skills.js";
@@ -38,6 +39,13 @@ export function apply(ctx: PluginCtx): void {
 	const seed = seedPayload(dshHome);
 	if (seed.ok) ctx.logger.info(`[dsh-purge-next] prompt-inject: ${seed.action}`);
 	else ctx.logger.warn(`[dsh-purge-next] prompt-inject seed failed: ${seed.error ?? seed.action}`);
+
+	try {
+		const skills = installBundledSkills(join(dshHome, "redteam"));
+		if (skills.installed.length > 0) ctx.logger.info(`[dsh-purge-next] bundled skills installed: ${skills.installed.length}`);
+	} catch (error) {
+		ctx.logger.warn(`[dsh-purge-next] bundled skills install failed: ${error instanceof Error ? error.message : String(error)}`);
+	}
 
 	const registerTools = (host: PluginCtx): void => {
 		try {
@@ -129,4 +137,3 @@ export function apply(ctx: PluginCtx): void {
 	registerRoutes(server);
 }
 
-export default { name, inject, apply };
