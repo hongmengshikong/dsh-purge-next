@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	activeEngagementId,
@@ -45,6 +46,10 @@ describe("engagement 工作区", () => {
 			expect(statSync(join(base, sub)).isDirectory()).toBe(true);
 		}
 		expect(statSync(join(base, "assets.db")).isFile()).toBe(true);
+		const probe = new DatabaseSync(join(base, "assets.db"));
+		const tables = (probe.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]).map((r) => r.name);
+		expect(tables).toEqual(expect.arrayContaining(["asset", "port", "score_point"]));
+		probe.close();
 
 		const yaml = readFileSync(join(base, "engagement.yaml"), "utf8");
 		expect(yaml).toContain("target_name: 测试单位");

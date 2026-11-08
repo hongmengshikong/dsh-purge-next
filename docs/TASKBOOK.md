@@ -69,7 +69,8 @@
 | client 真机 | ✅ | 隔离实例 `dataset.dshPurgeNext === "loaded"` |
 | 快照取值 | ✅ | `npm run fixture:fetch`（不入库） |
 | M2 engagement 生命周期 | ✅ | `slugify/open/list/active`，7 条单测 |
-| M2 数据方法清单 | ⬜ | 下一项：schema 全量 + asset/finding/score parity |
+| M2 schema 全量 | ✅ | DDL/KNOWLEDGE_DDL 与旧实现 sha256 一致；迁移幂等；建库接进 openEngagement |
+| M2 数据方法 parity | ⬜ | 下一项：asset / score 读写 + 旧实现对照 dump |
 
 ---
 
@@ -253,5 +254,6 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 20:30 — M2 schema：`src/redteam/store/schema.ts` 全量移植（DDL 4 段 sha256 与旧实现一致，迁移幂等，FTS5 探测），`score-rules.ts` 提供 parseTargetPort；`openEngagement` 现在建全量 schema。23 tests 全绿。
 - 2026-11-08 20:29 — M2 第一片：`src/redteam/store/{meta,engagement}.ts`（slugify/open/list/active），7 条单测；19 tests 全绿。schema 全量与 seed 仍待移植。
 - 2026-11-08 20:30 — 确立全面重构目标；取消 stable/beta 双通道（D7）；更新源指向本仓库（D8，URL 待填）；里程碑扩到 M2–M9。

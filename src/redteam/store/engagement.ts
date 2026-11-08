@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { readMeta, writeMeta, type Meta } from "./meta.js";
+import { ASSET_FTS_DDL, DDL, HAS_FTS5, migrate } from "./schema.js";
 
 export function nowIso(): string {
 	return new Date().toISOString();
@@ -106,11 +107,17 @@ export function openEngagement(
 	};
 	writeMeta(metaPath, meta);
 
-	// 旧实现会在这里建全量 schema；当前先落一个可打开的库，schema 随 M2 一起补。
+	// 与旧实现一致：建全量 schema + 迁移（FTS5 缺席时跳过虚拟表）。
 	const dbFile = dbPathOf(paths, id);
 	if (!existsSync(dbFile)) {
 		const db = new DatabaseSync(dbFile);
-		db.close();
+		try {
+			db.exec(DDL);
+			if (HAS_FTS5) db.exec(ASSET_FTS_DDL);
+			migrate(db);
+		} finally {
+			db.close();
+		}
 	}
 
 	if (options.bindCurrent !== false) setActiveEngagement(root, id);

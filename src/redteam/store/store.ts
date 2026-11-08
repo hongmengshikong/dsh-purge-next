@@ -1,4 +1,3 @@
-import { DatabaseSync } from "node:sqlite";
 import type {
 	Finding,
 	FindingRow,
@@ -8,7 +7,7 @@ import type {
 	Target,
 	TargetRow,
 } from "./types.js";
-import { migrate } from "./schema.js";
+import { DatabaseSync } from "node:sqlite";
 
 /** 评分权重：类型层面穷举 severity，新增等级会在这里编译报错。 */
 export const SEVERITY_WEIGHT: Record<Severity, number> = {
@@ -42,7 +41,17 @@ export class RedteamStore {
 	constructor(dbPath: string, options: StoreOptions = {}) {
 		this.db = new DatabaseSync(dbPath);
 		this.now = options.now ?? (() => new Date().toISOString());
-		migrate(this.db);
+		// 占位模型（target/finding）尚未并入正式 schema；先建自己的两张表。
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS target (
+				id TEXT PRIMARY KEY, name TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'unknown',
+				created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS finding (
+				id TEXT PRIMARY KEY, target_id TEXT NOT NULL, title TEXT NOT NULL,
+				severity TEXT NOT NULL DEFAULT 'info', created_at TEXT NOT NULL
+			);
+		`);
 	}
 
 	addTarget(input: { id: string; name: string; scope?: Scope }): Target {
