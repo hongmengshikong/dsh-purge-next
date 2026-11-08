@@ -82,6 +82,7 @@
 | M3 宿主入口 | ✅ | `hostPaths/hostStatus/hostApply/hostRevert`；status→apply→revert 全链路在真实 node_modules 布局上通过 |
 | M3 遗留语义 | ✅ | #42 折叠/重写、YAML persona 清理、原文件缺失从 bak 自愈（均与旧实现对照） |
 | M3 stale bak 刷新 | ⬜ | 宿主升级后旧 bak 的刷新策略（旧 refreshStaleBaksForUpgrade） |
+| M4 提示词注入 | ✅ | 默认正文入库；seed/保留用户稿/刷新旧默认与旧 core 一致；host-clean 判定对齐 |
 
 ---
 
@@ -265,6 +266,7 @@ apply → revert → 与快照 sha256 全等；二次 apply `applied=0`。
 - 2026-11-08 20:19 — 源码全 TS（`src/tools/gate.ts`、`tests/loader-sim.test.ts`、`esbuild.config.ts`）。
 - 2026-11-08 20:22 — 产物与快照移出版本库；新增 `fixture:fetch` 与 `prepare`。
 - 2026-11-08 20:26 — 清空历史，重建仓库为单一提交 `029f960`。
+- 2026-11-08 20:48 — M4 提示词：`prompt/prompt-data.ts`（内置默认 25 KB，hash 与旧槽一致）、`prompt/inject.ts`（seed/install/keep 用户稿/state）、`engine/host-clean.ts`；与旧 seedPromptInjectAtBoot 在空目录/用户稿/旧默认/当前默认四种场景 action、文件字节、state.hash 全一致。66 tests 全绿。
 - 2026-11-08 20:46 — M3 收尾：`engine/legacy.ts`（#42 legacyApplyPath 折叠/重写）、`engine/yaml.ts`（persona 折叠块清理）、`restoreMissingOriginals`；与旧 core 函数对照一致；host 测试新增「删文件后自愈」。59 tests 全绿。
 - 2026-11-08 20:44 — M3 宿主入口：`host-paths.ts` 由旧 targetFiles 生成（58 键，含 @earendil-works 归一），`host.ts` 串起 status/apply/revert；真实 node_modules 布局上 status 36 必需全绿、apply 74 次写入、pending 0、revert 字节还原、二次幂等。55 tests 全绿。
 - 2026-11-08 20:42 — M3 引擎：`engine/apply.ts`（literal/regex/expect/insertProbe/skipIfMarked/YAML 注释转换 + rollup）与 `engine/revert.ts`（bak 还原）；对照旧 apply 逐文件一致；快照副本 apply→revert 字节级还原、二次 apply applied=0。51 tests 全绿。
