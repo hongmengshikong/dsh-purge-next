@@ -74,6 +74,7 @@ describe("redteam tools", () => {
 			"redteam_poc_list",
 			"redteam_poc_update",
 			"redteam_poc_use",
+			"redteam_agent_slot",
 		]);
 
 		const exec = { sessionId: "s-tools" };

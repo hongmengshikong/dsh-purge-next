@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { loadPlatformConfig, nucleiTemplatesDirOf } from "../platform-config.js";
 
 export interface TemplateItem {
 	path: string;
@@ -23,6 +24,13 @@ export interface TemplateStats {
 }
 
 export function nucleiTemplatesDir(root: string): string | null {
+	// 环境适配里手填/自动分配的路径优先
+	try {
+		const configured = nucleiTemplatesDirOf(loadPlatformConfig(root), root);
+		if (configured) return configured;
+	} catch {
+		/* 配置读失败继续默认探测 */
+	}
 	const env = process.env.NUCLEI_TEMPLATES;
 	if (env && existsSync(env)) return env;
 	const candidates = [

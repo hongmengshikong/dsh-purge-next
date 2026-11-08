@@ -21,6 +21,7 @@ import { SCOPE_SQL } from "./store/schema.js";
 import { listPrompts, resetPrompts, savePrompt } from "./prompts.js";
 import { deletePoc, getPoc, markPocUsed, pocStats, savePoc, searchPocs, updatePoc } from "./knowledge/store.js";
 import { searchTemplates, templateStats } from "./knowledge/templates.js";
+import { assignToolkitFolder, loadPlatformConfig, platformSummary, savePlatformConfig } from "./platform-config.js";
 
 type SqlValue = string | number | null;
 const sqlv = (value: unknown): SqlValue =>
@@ -71,6 +72,17 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 			const activated = setActiveEngagement(root, String(req.engagement ?? ""));
 			return { ok: activated, current: activeEngagementId(root) };
 		}
+
+		if (op === "platformConfigGet") return platformSummary(root);
+
+		if (op === "platformConfigSave") {
+			savePlatformConfig((req.config ?? req) as never, root);
+			return platformSummary(root);
+		}
+
+		if (op === "platformAssignToolkit") return assignToolkitFolder(String(req.dir ?? ""), root);
+
+		if (op === "platformConfigRaw") return { ok: true, config: loadPlatformConfig(root) };
 
 		if (op === "pocSearch") {
 			const items = searchPocs(root, req as never);
@@ -382,6 +394,7 @@ export function dispatch(root: string, req: ApiRequest = {}): Record<string, unk
 				ok: true,
 				engagement: id,
 				stats: stats(db),
+				platform: platformSummary(root),
 				prompt_seeded: false,
 				at: new Date().toISOString(),
 			}));

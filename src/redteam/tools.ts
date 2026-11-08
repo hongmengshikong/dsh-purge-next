@@ -7,7 +7,9 @@
 import type { PluginCtx } from "../host/types.js";
 import { dispatch, redteamRoot } from "./api.js";
 import { findDshHome } from "../engine/host-discovery.js";
-import { bindEngagement, bindingViewOf, boundEngagement, resolveEngagement, type ExecLike } from "./session.js";
+import { bindEngagement, bindKeyOf, bindingViewOf, boundEngagement, resolveEngagement, type ExecLike } from "./session.js";
+import { maxAgentsOf, maxAgentsSourceOf } from "./settings.js";
+import { platformSummary } from "./platform-config.js";
 
 export interface ToolSpec {
 	name: string;
@@ -17,6 +19,35 @@ export interface ToolSpec {
 }
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2);
+
+/* 并发闸门：按会话根 id 记录预留（子智能体真正跑起来前先占位）。 */
+const RESERVATION_CAP = 500;
+const reservations = new Map<string, { key: string; label: string; at: number }[]>();
+
+function slotOwner(exec?: ExecLike): string {
+	return bindKeyOf(exec);
+}
+
+function reservationList(owner: string): { key: string; label: string; at: number }[] {
+	return reservations.get(owner) ?? [];
+}
+
+function addReservation(owner: string, label: string): string {
+	const key = label + "#" + Date.now();
+	const list = reservationList(owner).slice();
+	list.push({ key, label: label || "slot", at: Date.now() });
+	reservations.set(owner, list.slice(-RESERVATION_CAP));
+	return key;
+}
+
+function dropReservation(owner: string, key?: string): boolean {
+	const list = reservationList(owner).slice();
+	const index = key ? list.findIndex((item) => item.key === key) : 0;
+	if (index < 0) return false;
+	list.splice(index, 1);
+	reservations.set(owner, list);
+	return true;
+}
 
 export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 	const root = redteamRoot(dshHome);
@@ -772,6 +803,49 @@ export function buildTools(dshHome: string = findDshHome()): ToolSpec[] {
 			parameters: { id: { type: "number" }, code: { type: "string" }, used_on: { type: "string" } },
 			execute(args) {
 				return json(dispatch(root, { op: "pocUse", ...args }));
+			},
+		},
+		{
+			name: "redteam_agent_slot",
+			description: "执行智能体并发闸门：status 看名额，acquire 占位（满了直接拒绝），release 释放。",
+			parameters: {
+				action: { type: "string", required: true, enum: ["status", "acquire", "release"] },
+				label: { type: "string" },
+				key: { type: "string" },
+			},
+			execute(args, exec) {
+				const owner = slotOwner(exec);
+				const reserved = reservationList(owner);
+				const live = { running: 0, running_labels: [] as string[], available: false, error: "宿主未暴露子会话注册表，按预留统计" };
+				const used = Math.max(live.running, reserved.length);
+				const cap = maxAgentsOf(root);
+				const free = Math.max(cap - used, 0);
+				const base = {
+					ok: true,
+					max: cap,
+					used,
+					free,
+					running_from_registry: live.running,
+					running_labels: live.running_labels,
+					reservations: reserved,
+					registry_available: live.available,
+					registry_note: live.error,
+					source: maxAgentsSourceOf(root),
+				};
+				const action = String(args.action ?? "");
+				if (action === "status") {
+					return json({ ...base, hint: free === 0 ? "名额已满：等现有智能体回报后再派。" : "还有 " + free + " 个名额。" });
+				}
+				if (action === "acquire") {
+					if (free <= 0) return json({ ...base, ok: false, error: "并发已满（最多 " + cap + " 个）：先等回报或 release。" });
+					const key = addReservation(owner, String(args.label ?? "slot"));
+					return json({ ...base, slot: key, used: used + 1, free: Math.max(cap - used - 1, 0), hint: "已占位（" + key + "）；失败时 action=release key=" + key });
+				}
+				if (action === "release") {
+					const dropped = dropReservation(owner, typeof args.key === "string" && args.key.trim() ? args.key.trim() : undefined);
+					return json({ ...base, released: dropped, used: Math.max(used - (dropped ? 1 : 0), 0) });
+				}
+				return json({ ...base, ok: false, error: "action 必须是 status|acquire|release" });
 			},
 		},
 	];
